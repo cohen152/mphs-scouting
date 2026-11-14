@@ -80,8 +80,8 @@ small.h{color:var(--mute)}
 <script>
 'use strict';
 /* ---- Put your deployed Apps Script URL and team key here before hosting, so phones need no setup ---- */
-const DEFAULT_URL = '';
-const DEFAULT_KEY = '';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxKDZIyCqEsH91fzAa46_uAhpvZQP4U37LyKahaMYM6TO1h7tNH41YvemA__Z-bHTzO/exec';
+const DEFAULT_KEY = '17190';
 
 /* ================= helpers ================= */
 const $ = (s, el = document) => el.querySelector(s);
@@ -406,8 +406,8 @@ views.more = () => h('div', {},
   isAdmin() ? h('button', { class: 'btn y full', onclick: () => go('admin') }, 'Admin: users & teams') : null,
   h('h2', {}, 'Sync'),
   h('div', { class: 'meta' }, pendingCount() + ' change(s) waiting to upload'),
-  h('button', { class: 'btn full', onclick: async () => { const ok = await sync(true); toast(ok ? 'Synced ✓' : 'Could not sync'); go('more'); } }, 'Sync now'),
-  h('button', { class: 'btn o full', onclick: async () => { since = 0; persist(); const ok = await sync(true); toast(ok ? 'Re-downloaded everything' : 'Could not sync'); } }, 'Re-download everything'),
+  h('button', { class: 'btn full', onclick: async () => { const ok = await sync(true); toast(ok ? 'Synced ✓' : (lastError || 'Could not sync')); go('more'); } }, 'Sync now'),
+  h('button', { class: 'btn o full', onclick: async () => { since = 0; persist(); const ok = await sync(true); toast(ok ? 'Re-downloaded everything' : (lastError || 'Could not sync')); } }, 'Re-download everything'),
   h('h2', {}, 'Server'),
   h('label', { class: 'l' }, 'Backend URL'),
   h('input', { value: settings.url, autocapitalize: 'off', onchange: e => { settings.url = e.target.value.trim(); persist(); sync(true); } }),
@@ -503,7 +503,7 @@ function loginView() {
     chips,
     h('button', { class: 'btn o full', onclick: async () => {
       settings.url = url.value.trim(); settings.key = key.value.trim(); persist();
-      const ok = await sync(true); toast(ok ? 'Updated' : 'Could not reach server'); render();
+      const ok = await sync(true); toast(ok ? 'Updated' : (lastError || 'Could not reach server')); render();
     } }, 'Refresh user list'),
     h('details', { style: 'margin-top:16px' }, h('summary', {}, 'Server setup'), h('label', { class: 'l' }, 'Backend URL'), url, h('label', { class: 'l' }, 'Team key'), key));
 }
@@ -533,10 +533,11 @@ function setStatus(text, bad) {
 
 /* ================= sync ================= */
 let syncing = false;
+let lastError = '';
 async function sync(manual) {
   if (!settings.url) { setStatus('No server set', true); return false; }
   if (syncing) return false;
-  syncing = true; setStatus('Syncing…');
+  syncing = true; lastError = ''; setStatus('Syncing…');
   const usersBefore = users().length;
   try {
     const pending = Object.values(records).filter(r => r.dirty);
@@ -563,6 +564,7 @@ async function sync(manual) {
     afterSync(usersBefore);
     return true;
   } catch (e) {
+    lastError = String((e && e.message) || e);
     setStatus(pendingCount() ? 'Offline · ' + pendingCount() + ' pending' : 'Offline', true);
     return false;
   } finally { syncing = false; }
