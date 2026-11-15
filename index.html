@@ -135,6 +135,10 @@ small.h{color:var(--mute)}
 .plist div:last-child{border-bottom:0}
 .empty{display:flex;align-items:center;gap:8px;color:var(--ok);margin:12px 0}
 .notice{background:rgba(255,209,102,.14);border:1px solid rgba(255,209,102,.4);color:var(--warn);border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14px}
+a.lnk{color:var(--pl);text-decoration:underline;word-break:break-all}
+.seg2{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--card);padding:5px;border-radius:14px;margin:14px 0 4px}
+.seg2 button{border:0;background:transparent;color:var(--mute);font-family:var(--disp);font-size:19px;letter-spacing:.06em;text-transform:uppercase;padding:9px 0;border-radius:10px}
+.seg2 button.on{background:var(--p);color:#fff}
 details summary{cursor:pointer;color:var(--pl);padding:8px 0}
 </style>
 </head>
@@ -413,8 +417,21 @@ function teamIndex() {
       if (r.type === 'pit' && r.data.teamName) t.name = t.name || r.data.teamName;
     }
   }
+  for (const r of Object.values(records)) {
+    if (r.deleted || r.type !== 'info') continue;
+    const t = T[String(r.data.team)];
+    if (t) { t.info = infoOf(r); if (!t.name && t.info && t.info.found) t.name = t.info.name || ''; }
+  }
   return Object.values(T).sort((a, b) => numSort(a.team, b.team));
 }
+function infoOf(r) {
+  if (!r) return null;
+  const d = { ...r.data };
+  try { d.quick = d.quick ? JSON.parse(d.quick) : null; } catch { d.quick = null; }
+  try { d.events = d.events ? JSON.parse(d.events) : []; } catch { d.events = []; }
+  return d;
+}
+const infoFor = team => infoOf(records['info_' + team] && !records['info_' + team].deleted ? records['info_' + team] : null);
 const scouters = recs => [...new Set(recs.map(r => userName(r.data.scoutById, r.data.scout)))];
 const scouted = t => t.pit.length > 0 || t.field.length > 0;
 
@@ -450,12 +467,44 @@ views.board = () => {
 };
 function teamCard(t) {
   const who = recs => scouters(recs).join(', ');
-  return h('div', { class: 'card tap', onclick: () => go('team', t.team) },
+  return h('div', { class: 'card tap', onclick: () => { teamTab = 'scout'; go('team', t.team); } },
     h('div', { class: 'row' }, h('b', { class: 'tnum' }, t.team), t.name ? h('span', { class: 'tname' }, t.name) : null, h('span', { class: 'sp' }),
       h('span', { class: 'badge ' + (t.pit.length ? 'ok' : 'no') }, t.pit.length ? 'Pit ✓' : 'Pit —'),
       h('span', { class: 'badge ' + (t.field.length ? 'ok' : 'no') }, t.field.length ? t.field.length + ' match' + (t.field.length > 1 ? 'es' : '') : 'No matches')),
-    h('div', { class: 'meta' }, (t.pit.length ? 'Pit by ' + who(t.pit) : '') + (t.pit.length && t.field.length ? ' · ' : '') + (t.field.length ? 'Matches by ' + who(t.field) : ''),
+    h('div', { class: 'meta' }, (t.info && t.info.quick && t.info.quick.tot && t.info.quick.tot.v != null ? 'OPR ' + t.info.quick.tot.v + ' · ' : '') + (t.pit.length ? 'Pit by ' + who(t.pit) : '') + (t.pit.length && t.field.length ? ' · ' : '') + (t.field.length ? 'Matches by ' + who(t.field) : ''),
       !scouted(t) ? 'Not scouted yet' : '', t.assignedTo ? ' · Assigned: ' + userName(t.assignedTo, '?') : ''));
+}
+
+let teamTab = 'scout';
+const fmtV = v => v == null || v === '' ? '—' : (typeof v === 'number' ? String(Math.round(v * 10) / 10) : String(v));
+function statRow(label, st) {
+  return h('tr', {}, h('td', {}, label), h('td', {}, st && st.v != null ? st.v + (st.r != null ? '  (#' + st.r + ')' : '') : '—'));
+}
+function infoPanel(t) {
+  const i = t.info, link = 'https://ftcscout.org/teams/' + t.team;
+  const lookBtn = label => { const b = h('button', { class: 'btn s', onclick: async () => { b.disabled = true; b.lastChild.textContent = 'Looking up…'; await lookupTeams([t.team]); render(); } }, ico('refresh', 16), h('span', {}, label)); return b; };
+  const open = h('a', { class: 'lnk', href: link, target: '_blank', rel: 'noopener' }, 'Open on FTCScout');
+  if (!i) return [h('div', { class: 'card' }, h('p', { class: 'meta' }, 'No FTCScout data yet for this team.'), h('div', { class: 'row' }, lookBtn('Look up on FTCScout'), open))];
+  if (!i.found) return [h('div', { class: 'card' }, h('p', { class: 'meta' }, 'Team ' + t.team + ' was not found on FTCScout (' + (i.error || 'no data') + ').'), h('div', { class: 'row' }, lookBtn('Try again'), open))];
+  const site = i.website ? (/^https?:\/\//i.test(i.website) ? i.website : 'http://' + i.website) : '';
+  const place = [i.city, i.state, i.country].filter(Boolean).join(', ');
+  const rows = [['School', i.school], ['Location', place], ['Rookie year', i.rookie], ['Sponsors', i.sponsors]].filter(r => r[1])
+    .map(([k, v]) => h('tr', {}, h('td', {}, k), h('td', {}, String(v))));
+  if (site) rows.push(h('tr', {}, h('td', {}, 'Website'), h('td', {}, h('a', { class: 'lnk', href: site, target: '_blank', rel: 'noopener' }, i.website))));
+  const q = i.quick;
+  const out = [h('div', { class: 'card' }, h('div', { class: 'row' }, h('b', { class: 'tnum' }, t.team), h('span', {}, i.name || '')), rows.length ? h('table', {}, rows) : null)];
+  out.push(h('h2', {}, 'Season stats ' + i.season));
+  out.push(q && (q.tot || q.auto || q.dc || q.eg)
+    ? h('div', { class: 'card' }, h('table', {}, statRow('Total OPR', q.tot), statRow('Auto OPR', q.auto), statRow('Tele-op OPR', q.dc), statRow('Endgame OPR', q.eg)),
+        h('div', { class: 'meta' }, 'Rank is among all FTC teams' + (q.count ? ' (' + q.count + ' teams)' : '') + '.'))
+    : h('p', { class: 'meta' }, 'No season stats yet. The team may not have competed this season.'));
+  out.push(h('h2', {}, 'Events'));
+  if (!i.events.length) out.push(h('p', { class: 'meta' }, 'No events this season yet.'));
+  for (const e of i.events) out.push(h('div', { class: 'card' },
+    h('div', { class: 'row' }, h('b', {}, e.name || e.code), h('span', { class: 'sp' }), e.rank !== '' && e.rank != null ? h('span', { class: 'badge' }, 'Rank ' + e.rank) : null),
+    h('div', { class: 'meta' }, [e.start ? String(e.start).slice(0, 10) : '', e.city, (e.w !== '' && e.w != null) ? e.w + '-' + e.l + '-' + e.t : '', e.opr !== '' && e.opr != null ? 'OPR ' + e.opr : ''].filter(Boolean).join(' · '))));
+  out.push(h('div', { class: 'row', style: 'margin-top:14px' }, lookBtn('Refresh'), open, h('span', { class: 'sp' }), h('span', { class: 'meta', style: 'margin:0' }, 'Updated ' + fmtTime(i.fetchedAt))));
+  return out;
 }
 
 views.team = n => {
@@ -468,8 +517,10 @@ views.team = n => {
     t.assignedTo ? h('div', { class: 'meta' }, 'Assigned to ' + userName(t.assignedTo, '?')) : null,
     h('div', { class: 'row', style: 'margin-top:8px' },
       h('button', { class: 'btn', onclick: () => go('field', { team: t.team }) }, ico('plus', 18), 'Match'),
-      h('button', { class: 'btn', onclick: () => go('pit', { team: t.team, teamName: t.name }) }, ico('plus', 18), 'Pit'))
+      h('button', { class: 'btn', onclick: () => go('pit', { team: t.team, teamName: t.name }) }, ico('plus', 18), 'Pit')),
+    h('div', { class: 'seg2' }, [['scout', 'Our scouting'], ['info', 'FTCScout']].map(([k, l]) => h('button', { class: teamTab === k ? 'on' : '', onclick: () => { teamTab = k; render(); } }, l)))
   ];
+  if (teamTab === 'info') { out.push(...infoPanel(t)); return h('div', {}, out); }
   out.push(h('h2', {}, 'Pit'));
   if (!t.pit.length) out.push(h('p', { class: 'meta' }, 'No pit scouting yet.'));
   else {
@@ -578,12 +629,13 @@ views.admin = () => {
   const bulk = h('textarea', { rows: 4, placeholder: 'One per line or comma-separated:\n8533 Miners\n1234\n5678 Robo Bees' });
   const addTeams = keep(() => {
     const existing = new Set(activeOf('target').map(r => String(r.data.team)));
-    let added = 0;
+    let added = 0; const newNums = [];
     for (const line of bulk.value.split(/[\n,;]+/)) {
       const m = line.trim().match(/^(\d+)\s*(.*)$/); if (!m || existing.has(m[1])) continue;
-      upsertRec('target', { team: m[1], name: m[2].trim(), assignedTo: '' }); existing.add(m[1]); added++;
+      upsertRec('target', { team: m[1], name: m[2].trim(), assignedTo: '' }); existing.add(m[1]); added++; newNums.push(m[1]);
     }
-    toast(added ? 'Added ' + added + ' team(s)' : 'No new teams found');
+    toast(added ? 'Added ' + added + ' team(s) · checking FTCScout…' : 'No new teams found');
+    if (added) lookupTeams(newNums, false).then(() => render());
   });
   const targets = activeOf('target').sort((a, b) => numSort(a.data.team, b.data.team));
   const targetCards = targets.map(r => h('div', { class: 'card' },
@@ -600,7 +652,9 @@ views.admin = () => {
     h('div', { class: 'row', style: 'margin-top:8px;flex-wrap:nowrap' }, newUser, h('button', { class: 'btn', onclick: addUser }, ico('plus', 18), 'Add')),
     userCards,
     h('h2', {}, 'Teams to scout (' + targets.length + ')'),
-    bulk, h('button', { class: 'btn full', onclick: addTeams }, ico('plus', 18), 'Add teams'), targetCards);
+    bulk, h('button', { class: 'btn full', onclick: addTeams }, ico('plus', 18), 'Add teams'),
+    targets.length ? h('button', { class: 'btn o full', onclick: async e => { const b = e.currentTarget; b.disabled = true; await lookupTeams(targets.map(r => r.data.team)); b.disabled = false; render(); } }, ico('refresh', 18), 'Look up all teams on FTCScout') : null,
+    targetCards);
 };
 
 /* ================= server calls, login, passwords ================= */
@@ -658,6 +712,24 @@ async function resetPassword(u) {
     const j = await api({ action: 'resetpw', userId: session, token: auth.token, targetId: u.id });
     toast(j.ok ? u.data.name + ' reset to 1111' : (j.error || 'Could not reset'));
   } catch (e) { toast("Can't reach the server"); }
+}
+
+/* ---------- FTCScout lookups (the backend calls FTCScout, then everyone syncs the result) ---------- */
+async function lookupTeams(teams, quiet) {
+  teams = [...new Set(teams.map(String))].filter(t => /^\d+$/.test(t));
+  if (!teams.length) return { ok: 0, bad: [] };
+  let ok = 0; const bad = [];
+  try {
+    for (let i = 0; i < teams.length; i += 8) {
+      const chunk = teams.slice(i, i + 8);
+      const j = await api({ action: 'lookup', userId: session, token: auth.token, teams: chunk });
+      if (!j.ok) { if (!quiet) toast(j.error || 'Lookup failed'); return { ok, bad: teams }; }
+      for (const t of chunk) { const r = (j.results || {})[t]; if (r && r.ok) ok++; else bad.push(t + (r && r.error ? ' (' + r.error + ')' : '')); }
+    }
+    await sync(true);
+    if (!quiet) toast(bad.length ? 'FTCScout: ' + ok + ' found, ' + bad.length + ' not: ' + bad.join(', ') : 'FTCScout info updated for ' + ok + ' team(s)');
+  } catch (e) { if (!quiet) toast("Can't reach the server for the FTCScout lookup"); }
+  return { ok, bad };
 }
 
 /* ================= login screen (setup tools hidden: tap the logo 5 times) ================= */
