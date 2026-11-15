@@ -562,9 +562,9 @@ async function sync(manual) {
       const cur = records[r.id];
       if (!cur || cur.updatedAt !== snap[r.id]) continue;
       cur.dirty = false;
-      if (rejected.has(r.id)) { cur.updatedAt = 0; cur.deleted = true; }
+      if (rejected.has(r.id)) { cur.dirty = false; cur.deleted = true; cur.updatedAt = 0; }
     }
-    if (rejected.size) { since = 0; toast('Some changes were not allowed (admin only)'); }
+    if (rejected.size) { since = 0; lastError = 'Not allowed: ' + (j.reason || 'admin only'); toast(lastError); }
     for (const s of j.records || []) {
       const l = records[s.id];
       if (!l || (!l.dirty && s.updatedAt >= l.updatedAt)) records[s.id] = { ...s, dirty: false };
