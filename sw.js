@@ -1,4 +1,4 @@
-const CACHE = 'scout-v3';
+const CACHE = 'scout-v4';
 const ASSETS = ['./', 'index.html', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'logo-white.png'];
 
 self.addEventListener('install', e => {
@@ -20,8 +20,8 @@ self.addEventListener('fetch', e => {
   const u = new URL(req.url);
   const store = r => { if (r && (r.ok || r.type === 'opaque')) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(req, copy)); } return r; };
 
-  // Fonts (Google Fonts and the Norwester CDN): cache first so the look survives no signal.
-  if (['fonts.googleapis.com', 'fonts.gstatic.com', 'cdn.jsdelivr.net'].includes(u.hostname)) {
+  // Fonts and the QR tool libraries: cache first so the look survives no signal.
+  if (['fonts.googleapis.com', 'fonts.gstatic.com', 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com'].includes(u.hostname)) {
     e.respondWith(caches.match(req).then(m => m || fetch(req).then(store)));
     return;
   }
