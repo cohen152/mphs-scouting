@@ -483,11 +483,19 @@ views.admin = () => {
 function loginView() {
   const inp = h('input', { placeholder: 'Your username', autocapitalize: 'off', autocomplete: 'off', autocorrect: 'off' });
   const msg = h('p', { class: 'err' });
-  const tryLogin = () => {
-    const n = inp.value.trim().toLowerCase();
-    const u = users().find(x => x.data.name.trim().toLowerCase() === n);
-    if (!u) { msg.textContent = users().length ? 'No user with that name. Ask your admin to add you.'
-      : 'No users downloaded yet. Check the server settings below and tap Refresh.'; return; }
+  const find = () => { const n = inp.value.trim().toLowerCase(); return users().find(x => x.data.name.trim().toLowerCase() === n); };
+  const tryLogin = async () => {
+    let u = find();
+    if (!u) {
+      msg.textContent = 'Checking server…'; since = 0; persist();
+      while (syncing) await new Promise(r => setTimeout(r, 300));
+      await sync(true); u = find();
+    }
+    if (!u) {
+      msg.textContent = lastError ? 'Server problem: ' + lastError
+        : users().length ? 'No user with that name. Ask your admin to add you.' : 'Server returned no users.';
+      return;
+    }
     session = u.id; persist(); view = { name: 'board', arg: null }; render(); sync();
   };
   inp.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
@@ -499,6 +507,7 @@ function loginView() {
     h('h1', {}, '🐝 BioBuzz Scout'),
     h('p', { class: 'meta' }, 'Enter your username to start scouting.'),
     inp, msg,
+    h('p', { class: 'meta' }, 'Server: ' + (settings.url ? settings.url.slice(0, 48) + '…' : 'NOT SET') + ' · key: ' + (settings.key ? settings.key.length + ' chars' : 'NOT SET') + (lastError ? ' · last error: ' + lastError : '')),
     h('button', { class: 'btn y full', onclick: tryLogin }, 'Sign in'),
     chips,
     h('button', { class: 'btn o full', onclick: async () => {
@@ -535,7 +544,7 @@ function setStatus(text, bad) {
 let syncing = false;
 let lastError = '';
 async function sync(manual) {
-  if (!settings.url) { setStatus('No server set', true); return false; }
+  if (!settings.url) { lastError = 'Backend URL is empty'; setStatus('No server set', true); return false; }
   if (syncing) return false;
   syncing = true; lastError = ''; setStatus('Syncing…');
   const usersBefore = users().length;
@@ -544,7 +553,8 @@ async function sync(manual) {
     const snap = Object.fromEntries(pending.map(r => [r.id, r.updatedAt]));
     const res = await fetch(settings.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ key: settings.key, userId: session, since, records: pending.map(({ dirty, ...r }) => r) }) });
-    const j = await res.json();
+    const txt = await res.text(); let j;
+    try { j = JSON.parse(txt); } catch { throw new Error('Server sent a web page, not data: ' + txt.slice(0, 60).replace(/\s+/g, ' ')); }
     if (!j.ok) throw new Error(j.error || 'Server error');
     const rejected = new Set(j.rejected || []);
     for (const r of pending) {
