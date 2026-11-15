@@ -546,7 +546,7 @@ let syncing = false;
 let lastError = '';
 async function sync(manual) {
   if (!settings.url) { lastError = 'Backend URL is empty'; setStatus('No server set', true); return false; }
-  if (syncing) return false;
+  if (syncing) { if (!manual) return false; while (syncing) await new Promise(r => setTimeout(r, 200)); }
   syncing = true; lastError = ''; setStatus('Syncing…');
   const usersBefore = users().length;
   try {
