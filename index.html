@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MPHS Scout">
+<meta name="theme-color" content="#6b2ba8">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend+Deca:wght@400;500;600;700&family=Oswald:wght@500;600&display=swap" rel="stylesheet">
+<title>MPHS Scout</title>
+<style>
+/* Norwester: loads from the local font, then a CDN copy, then a file named norwester.woff2 next to this page. Falls back to Oswald. */
+@font-face{font-family:'Norwester';font-display:swap;src:local('Norwester'),url('https://cdn.jsdelivr.net/fontsource/fonts/norwester@latest/latin-400-normal.woff2') format('woff2'),url('norwester.woff2') format('woff2'),url('norwester.otf') format('opentype')}
+:root{
+  --p:#6b2ba8;--pl:#b58be3;--s:#2e333f;--bg:#22262f;--card:#2e333f;--card2:#394050;
+  --line:rgba(255,255,255,.14);--mute:rgba(255,255,255,.66);--ok:#58d68d;--bad:#ff6b6b;--warn:#ffd166;
+  --body:'Lexend Deca',system-ui,-apple-system,sans-serif;--disp:'Norwester','Oswald','Arial Narrow',sans-serif;
+  --nav:64px;--hdr:calc(env(safe-area-inset-top) + 54px)
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:var(--bg)}
+body{margin:0;font:16px/1.4 var(--body);background:var(--bg);color:#fff;padding-bottom:calc(var(--nav) + 24px + env(safe-area-inset-bottom))}
+button{font-family:inherit}
+.ico{display:inline-grid;place-items:center;line-height:0}
+header.top{position:sticky;top:0;z-index:5;background:var(--p);height:var(--hdr);padding:env(safe-area-inset-top) 14px 0;display:flex;align-items:center;gap:10px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+.logo-s{height:34px;width:auto;flex:none}
+.brand{font-family:var(--disp);font-weight:400;font-size:20px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;flex:none}
+.sp{flex:1;min-width:0}
+.pill{display:inline-flex;align-items:center;gap:6px;font:500 12px var(--body);color:#fff;background:rgba(255,255,255,.18);border:0;border-radius:99px;padding:7px 11px;white-space:nowrap;min-width:0;flex:0 1 auto}
+.pill span.t{overflow:hidden;text-overflow:ellipsis}
+.pill.bad{background:#b3261e}
+.pill.spin .ico{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+main{padding:14px;max-width:640px;margin:0 auto}
+h1{font-family:var(--disp);font-weight:400;font-size:30px;letter-spacing:.04em;text-transform:uppercase;margin:4px 0 10px}
+h2{font-family:var(--disp);font-weight:400;font-size:19px;letter-spacing:.08em;text-transform:uppercase;margin:24px 0 10px;padding-bottom:5px;border-bottom:2px solid var(--p);color:var(--pl)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0}
+.card.tap{cursor:pointer}.card.tap:active{background:var(--card2)}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tnum{font-family:var(--disp);font-size:30px;line-height:1;letter-spacing:.03em}
+.tname{color:var(--mute)}
+.meta{font-size:13px;color:var(--mute);margin-top:4px}
+.badge{font-size:12px;border-radius:99px;padding:3px 9px;background:rgba(255,255,255,.12)}
+.badge.ok{background:rgba(88,214,141,.18);color:var(--ok)}
+.badge.no{background:rgba(255,107,107,.18);color:var(--bad)}
+.badge.warn{background:rgba(255,209,102,.18);color:var(--warn)}
+label.l{display:block;font-weight:600;font-size:14px;margin:16px 0 6px;color:rgba(255,255,255,.9)}
+input,select,textarea{width:100%;font:inherit;color:#fff;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color-scheme:dark}
+input::placeholder,textarea::placeholder{color:rgba(255,255,255,.38)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--pl);outline-offset:0}
+textarea{resize:vertical}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;border:0;border-radius:12px;padding:13px 16px;background:var(--p);color:#fff;cursor:pointer}
+.btn:disabled{opacity:.55}
+.btn.o{background:transparent;border:1px solid rgba(255,255,255,.28)}
+.btn.d{background:#b3261e}
+.btn.s{padding:8px 12px;font-size:14px;border-radius:10px}
+.btn.full{display:flex;width:100%;margin-top:12px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1;min-width:70px;font:inherit;color:#fff;padding:12px 8px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.seg button.on{background:var(--p);border-color:var(--pl);font-weight:700}
+.toggle{display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;color:#fff;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;margin:8px 0}
+.toggle i{width:26px;height:26px;border:2px solid var(--mute);border-radius:7px;display:grid;place-items:center;flex:none}
+.toggle.on{background:var(--p);border-color:var(--pl)}
+.toggle.on i{background:#fff;color:var(--p);border-color:#fff}
+nav.bar{position:fixed;left:0;right:0;bottom:0;background:var(--s);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:6}
+nav.bar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:none;font:500 11px var(--body);height:var(--nav);justify-content:center;color:var(--mute);position:relative}
+nav.bar button.on{color:#fff;font-weight:700}
+nav.bar button.on::before{content:'';position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 3px 3px;background:var(--pl)}
+nav.bar button.on .ico{color:var(--pl)}
+.err{color:var(--bad);min-height:1.2em;font-size:14px;margin:4px 0 0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.chips button{font:500 14px var(--body);color:#fff;border:1px solid var(--line);background:var(--card);border-radius:99px;padding:7px 13px}
+.chips button.on{background:var(--p);border-color:var(--pl);font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td{padding:7px 4px;border-bottom:1px solid var(--line)}
+td:last-child{text-align:right;font-weight:600}
+.bar-prog{height:8px;background:rgba(255,255,255,.14);border-radius:99px;overflow:hidden;margin:6px 0 10px}
+.bar-prog div{height:100%;background:var(--ok)}
+#toast{position:fixed;left:50%;top:calc(var(--hdr) + 10px);transform:translateX(-50%);background:#fff;color:#22262f;font-weight:500;padding:10px 18px;border-radius:99px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:30;max-width:92%;text-align:center}
+#toast.show{opacity:1}
+small.h{color:var(--mute)}
+/* login */
+.login{max-width:380px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 36px) 22px 30px;text-align:center}
+.login .big-logo{width:150px;height:auto;margin:6px auto 4px;display:block;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.login h1{font-size:44px;margin:4px 0 2px;letter-spacing:.08em}
+.login .sub{color:var(--mute);margin:0 0 22px}
+.login input{margin:6px 0;font-size:17px}
+.login .setup{margin-top:26px;text-align:left;border-top:1px solid var(--line);padding-top:6px}
+/* match screen */
+.info{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.info label{font-size:12px;color:var(--mute);font-weight:600;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px}
+.info input{font-family:var(--disp);font-size:34px;text-align:center;padding:6px;letter-spacing:.04em}
+.robots{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+.robots button{font:600 13px var(--body);color:#fff;padding:12px 2px;border-radius:12px;background:var(--bg);border:1px solid var(--line);border-top:4px solid var(--c)}
+.robots button.red{--c:#ff6b6b}.robots button.blue{--c:#5aa9ff}
+.robots button.on{background:var(--c);color:#16181d;border-color:var(--c)}
+.tabwrap{position:sticky;top:var(--hdr);z-index:4;background:var(--bg);padding:10px 0 8px}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--card);padding:5px;border-radius:14px}
+.tabs button{border:0;background:transparent;color:var(--mute);font-family:var(--disp);font-size:20px;letter-spacing:.06em;text-transform:uppercase;padding:10px 0;border-radius:10px}
+.tabs button.on{background:var(--p);color:#fff}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.tile{position:relative;background:var(--card);border:1px solid var(--line);border-left:7px solid var(--tone,var(--p));border-radius:16px;overflow:hidden;user-select:none;-webkit-user-select:none}
+.tile[data-tone=pollen]{--tone:#f5c518}.tile[data-tone=nectar]{--tone:#ff9f43}.tile[data-tone=garden]{--tone:#58d68d}
+.tile-main{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:6px;width:100%;min-height:136px;padding:12px 14px;border:0;background:transparent;color:#fff;font:inherit;text-align:left;touch-action:manipulation}
+.tile-main:active{background:rgba(107,43,168,.55)}
+.tile-main .tl{font-size:14px;font-weight:600;color:rgba(255,255,255,.82);padding-right:44px;line-height:1.2}
+.tile-main output{font-family:var(--disp);font-size:62px;line-height:1;display:block}
+.tile.pop output{animation:pop .18s}
+@keyframes pop{50%{transform:scale(1.3)}}
+.tile-minus{position:absolute;top:6px;right:6px;width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.1);color:#fff;border:0;display:grid;place-items:center;touch-action:manipulation}
+.tile-minus:active{background:rgba(255,255,255,.25)}
+.chk{display:flex;align-items:center;gap:10px;min-height:68px;padding:10px 12px;border-radius:16px;border:1px solid var(--line);background:var(--card);color:#fff;font:600 15px var(--body);text-align:left;touch-action:manipulation}
+.chk i{width:30px;height:30px;border-radius:9px;border:2px solid var(--mute);display:grid;place-items:center;flex:none}
+.chk.on{background:var(--p);border-color:var(--pl)}
+.chk.on i{background:#fff;color:var(--p);border-color:#fff}
+.sub-h{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:16px 2px 0;font-weight:600}
+.savebar{position:sticky;bottom:calc(var(--nav) + 8px + env(safe-area-inset-bottom));padding-top:14px;background:linear-gradient(to bottom,transparent,var(--bg) 40%);z-index:4}
+.savebar .btn{width:100%;font-size:18px;padding:16px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+/* sync sheet */
+.sheet-wrap{position:fixed;inset:0;z-index:40}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:82vh;overflow:auto;background:var(--s);border-radius:22px 22px 0 0;padding:10px 18px calc(18px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto;border-top:1px solid var(--line);animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+.grab{width:44px;height:5px;border-radius:9px;background:rgba(255,255,255,.3);margin:4px auto 12px}
+.sheet h3{font-family:var(--disp);font-weight:400;font-size:26px;letter-spacing:.06em;text-transform:uppercase;margin:0 0 4px}
+.plist{margin:10px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.plist div{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:14px}
+.plist div:last-child{border-bottom:0}
+.empty{display:flex;align-items:center;gap:8px;color:var(--ok);margin:12px 0}
+.notice{background:rgba(255,209,102,.14);border:1px solid rgba(255,209,102,.4);color:var(--warn);border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14px}
+details summary{cursor:pointer;color:var(--pl);padding:8px 0}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast"></div>
+<script>
+'use strict';
+/* Backend address and team key. Phones use these automatically. */
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxKDZIyCqEsH91fzAa46_uAhpvZQP4U37LyKahaMYM6TO1h7tNH41YvemA__Z-bHTzO/exec';
+const DEFAULT_KEY = '17190';
+
+/* ================= helpers ================= */
+const $ = (s, el = document) => el.querySelector(s);
+const h = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat(Infinity)) {
+    if (kid == null || kid === false) continue;
+    e.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return e;
+};
+const ICONS = {
+  board: '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>',
+  flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+  wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+  save: '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
+  more: '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
+  refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  back: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  minus: '<path d="M5 12h14"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  trash: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  key: '<path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/>',
+  download: '<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>'
+};
+const ico = (n, s = 22) => { const e = document.createElement('span'); e.className = 'ico'; e.innerHTML = '<svg viewBox="0 0 24 24" width="' + s + '" height="' + s + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[n] + '</svg>'; return e; };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { toast('Could not save on this device'); } }
+};
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+const fmtTime = ms => new Date(ms).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+const numSort = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true });
+async function sha(s) {
+  try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+  catch { return ''; }
+}
+
+/* ================= state ================= */
+let records = LS.get('scout.records', {});
+const saved = LS.get('scout.settings', {});
+let settings = { url: saved.url || DEFAULT_URL, key: saved.key || DEFAULT_KEY };
+let since = LS.get('scout.since', 0);
+let session = LS.get('scout.session', null);
+let auth = LS.get('scout.auth', {});
+let view = { name: 'board', arg: null };
+let lastStatus = { text: 'Not synced yet', bad: false };
+let showSetup = false, sheetOpen = false, syncing = false, lastError = '';
+function persist() {
+  LS.set('scout.records', records); LS.set('scout.since', since); LS.set('scout.session', session);
+  LS.set('scout.auth', auth); LS.set('scout.settings', settings);
+}
+const activeOf = type => Object.values(records).filter(r => r.type === type && !r.deleted);
+const users = () => activeOf('user');
+const me = () => { const r = session && records[session]; return r && r.type === 'user' && !r.deleted ? r : null; };
+const isAdmin = () => !!me() && me().data.role === 'admin';
+const userName = (id, fallback) => (records[id] && !records[id].deleted ? records[id].data.name : fallback) || fallback || '?';
+const pendingList = () => Object.values(records).filter(r => r.dirty);
+const pendingCount = () => pendingList().length;
+
+function upsertRec(type, data, id) {
+  const r = { id: id || uid(), type, data, updatedAt: Date.now(), deleted: false, dirty: true };
+  records[r.id] = r; persist(); sync(); return r;
+}
+function removeRec(id) {
+  const r = records[id]; if (!r) return;
+  records[id] = { ...r, deleted: true, updatedAt: Date.now(), dirty: true }; persist(); sync();
+}
+
+/* ================= forms (schemas) ================= */
+const SCHEMAS = {
+  field: [
+    { key: 'team', label: 'Team #', type: 'number' },
+    { key: 'match', label: 'Match #', type: 'number' },
+    { key: 'robot', label: 'Robot', type: 'select', options: ['Red 1', 'Red 2', 'Blue 1', 'Blue 2'] },
+    { key: 'a_leave', label: 'Did they leave?', short: 'Left start', type: 'check' },
+    { key: 'a_garden', label: 'Picked up from the garden?', short: 'Garden pickup', type: 'check' },
+    { key: 'a_flower', label: 'Picked up from the flower?', short: 'Flower pickup', type: 'check' },
+    { key: 'a_park', label: 'Did they park?', short: 'Parked', type: 'check' },
+    { key: 'a_pollenHive', label: 'POLLEN scores in Hive', short: 'Pollen in Hive', tone: 'pollen', type: 'counter' },
+    { key: 'a_nectarHive', label: 'NECTAR scores in Hive', short: 'Nectar in Hive', tone: 'nectar', type: 'counter' },
+    { key: 't_pollenHive', label: 'POLLEN scores in Hive', short: 'Pollen in Hive', tone: 'pollen', type: 'counter' },
+    { key: 't_nectarHive', label: 'NECTAR scores in Hive', short: 'Nectar in Hive', tone: 'nectar', type: 'counter' },
+    { key: 't_pollenFlower', label: 'POLLEN scores in Flower', short: 'Pollen in Flower', tone: 'pollen', type: 'counter' },
+    { key: 't_nectarFlower', label: 'NECTAR scores in Flower', short: 'Nectar in Flower', tone: 'nectar', type: 'counter' },
+    { key: 't_garden', label: 'ELEMENTS in Garden', short: 'Elements in Garden', tone: 'garden', type: 'counter' },
+    { key: 't_park', label: 'Did they park?', short: 'Parked', type: 'check' },
+    { key: 't_defense', label: 'Did they play defense?', short: 'Played defense', type: 'check' },
+    { key: 't_broke', label: 'Did they break down?', short: 'Broke down', type: 'check' },
+    { key: 't_brokeNote', label: 'What happened?', type: 'text', showIf: d => d.t_broke },
+    { key: 't_penalty', label: 'Any penalties?', short: 'Penalty', type: 'check' },
+    { key: 't_penaltyNote', label: 'Which penalties?', type: 'text', showIf: d => d.t_penalty },
+    { key: 'notes', label: 'Other notes', type: 'textarea' }
+  ],
+  pit: [
+    { key: 'team', label: 'Team #', type: 'number' },
+    { key: 'teamName', label: 'Team name', type: 'text' },
+    { key: 'startPref', label: 'Do you have a preference where you start on the field?', type: 'yn' },
+    { key: 'startWhere', label: 'Where? (starting position notes)', type: 'text', showIf: d => d.startPref === 'Yes' },
+    { key: 'hasAuton', label: 'Do you have an auton?', type: 'yn' },
+    { key: 'autonPath', label: 'Preferred auton path', type: 'textarea', showIf: d => d.hasAuton === 'Yes' },
+    { key: 'hiveTip', label: 'Can you score the hive after it tips in auton?', type: 'yn' },
+    { key: 'autoPark', label: 'Do you park at the end of auton?', type: 'yn' },
+    { key: 'autoParkWhere', label: 'Where?', type: 'text', showIf: d => d.autoPark === 'Yes' },
+    { key: 'autoShoot', label: 'Can you shoot pollen into the hive in Auton?', type: 'yn' },
+    { key: 'autoShootCount', label: 'How many?', type: 'number', showIf: d => d.autoShoot === 'Yes' },
+    { key: 'pickBoth', label: 'Can you pick up both pollen and nectar?', type: 'yn' },
+    { key: 'pickupMethod', label: 'How do you pick up pollen/nectar?', type: 'select', options: ['From Floor', 'From Flower', 'Both'] },
+    { key: 'teleShootPollen', label: 'Can you shoot pollen into the hive during tele-op?', type: 'yn' },
+    { key: 'teleShootNectar', label: 'Can you shoot nectar into the hive during tele-op?', type: 'yn' },
+    { key: 'defense', label: 'Can your robot play defense?', type: 'yn' },
+    { key: 'defenseNote', label: 'Please explain your defense', type: 'textarea', showIf: d => d.defense === 'Yes' },
+    { key: 'endPark', label: 'Do you park at the end of end game?', type: 'yn' },
+    { key: 'notes', label: "Anything else you'd like us to know about your robot?", type: 'textarea' }
+  ]
+};
+function defaults(type, pre = {}) {
+  const d = {};
+  for (const f of SCHEMAS[type]) d[f.key] = f.type === 'check' ? false : f.type === 'counter' ? 0 : '';
+  return Object.assign(d, pre || {});
+}
+
+/* ---------- pit form ---------- */
+function pitFormView(rec, pre) {
+  const d = rec ? { ...rec.data } : defaults('pit', pre);
+  const root = h('div');
+  function fieldEl(f) {
+    const set = (v, redraw) => { d[f.key] = v; if (redraw) draw(); };
+    if (f.type === 'yn' || f.type === 'select') {
+      const opts = f.type === 'yn' ? ['Yes', 'No'] : f.options;
+      return h('div', {}, h('label', { class: 'l' }, f.label),
+        h('div', { class: 'seg' }, opts.map(o => h('button', { type: 'button', class: d[f.key] === o ? 'on' : '', onclick: () => set(d[f.key] === o ? '' : o, true) }, o))));
+    }
+    if (f.type === 'textarea') return h('div', {}, h('label', { class: 'l' }, f.label),
+      h('textarea', { rows: 3, oninput: e => { d[f.key] = e.target.value; } }, d[f.key] || ''));
+    return h('div', {}, h('label', { class: 'l' }, f.label),
+      h('input', { type: 'text', inputmode: f.type === 'number' ? 'numeric' : 'text', autocomplete: 'off', value: d[f.key] ?? '', oninput: e => { d[f.key] = e.target.value; } }));
+  }
+  function save() {
+    if (!/^\d+$/.test(String(d.team).trim())) { toast('Enter the team number (digits only)'); return; }
+    d.team = String(d.team).trim();
+    if (!rec) {
+      const ex = activeOf('pit').find(r => String(r.data.team) === d.team);
+      if (ex && !confirm('Team ' + d.team + ' already has a pit sheet by ' + userName(ex.data.scoutById, ex.data.scout) + '. Save another anyway?')) return;
+    }
+    d.scoutById = me().id; d.scout = me().data.name;
+    upsertRec('pit', { ...d }, rec && rec.id);
+    toast('Saved');
+    go(rec ? 'saved' : 'pit');
+  }
+  function build() {
+    const out = [h('h1', {}, (rec ? 'Edit ' : '') + 'Pit scouting'), h('small', { class: 'h' }, 'Scouting as ' + me().data.name + (rec ? ' · originally by ' + userName(rec.data.scoutById, rec.data.scout) : ''))];
+    for (const f of SCHEMAS.pit) if (!f.showIf || f.showIf(d)) out.push(fieldEl(f));
+    out.push(h('button', { class: 'btn full', type: 'button', onclick: save }, ico('check', 20), rec ? 'Save changes' : 'Save pit sheet'));
+    if (rec) out.push(h('button', { class: 'btn d full', type: 'button', onclick: () => { if (confirm('Delete this entry for everyone?')) { removeRec(rec.id); toast('Deleted'); go('saved'); } } }, ico('trash', 18), 'Delete entry'));
+    return out;
+  }
+  function draw() { const y = scrollY; root.replaceChildren(...build().flat(Infinity).filter(Boolean)); scrollTo(0, y); }
+  draw();
+  return root;
+}
+
+/* ---------- match form (built for use during a live match) ---------- */
+function fieldFormView(rec, pre) {
+  const d = rec ? { ...rec.data } : defaults('field', pre);
+  let tab = 'auton';
+  const root = h('div');
+  const F = SCHEMAS.field;
+
+  const counterTile = f => {
+    const out = h('output', {}, String(d[f.key] || 0));
+    const set = v => { d[f.key] = Math.max(0, v); out.textContent = String(d[f.key]); };
+    const tile = h('div', { class: 'tile', 'data-tone': f.tone || '' },
+      h('button', { type: 'button', class: 'tile-main', onclick: () => {
+        set((Number(d[f.key]) || 0) + 1);
+        tile.classList.remove('pop'); void tile.offsetWidth; tile.classList.add('pop');
+        if (navigator.vibrate) navigator.vibrate(8);
+      } }, h('span', { class: 'tl' }, f.short || f.label), out),
+      h('button', { type: 'button', class: 'tile-minus', 'aria-label': 'Subtract one', onclick: () => set((Number(d[f.key]) || 0) - 1) }, ico('minus', 20)));
+    return tile;
+  };
+  const checkTile = f => h('button', { type: 'button', class: 'chk' + (d[f.key] ? ' on' : ''), onclick: () => { d[f.key] = !d[f.key]; draw(); } },
+    h('i', {}, d[f.key] ? ico('check', 18) : null), f.short || f.label);
+
+  const phase = prefix => {
+    const fs = F.filter(f => f.key.startsWith(prefix));
+    const counters = fs.filter(f => f.type === 'counter'), checks = fs.filter(f => f.type === 'check');
+    const texts = fs.filter(f => f.type === 'text' && (!f.showIf || f.showIf(d)));
+    return [
+      h('div', { class: 'sub-h' }, 'Tap to score'), h('div', { class: 'mgrid' }, counters.map(counterTile)),
+      h('div', { class: 'sub-h' }, 'What happened'), h('div', { class: 'mgrid' }, checks.map(checkTile)),
+      texts.map(f => h('input', { type: 'text', placeholder: f.label, value: d[f.key] || '', style: 'margin-top:4px', oninput: e => { d[f.key] = e.target.value; } }))
+    ];
+  };
+
+  function validate() {
+    if (!/^\d+$/.test(String(d.team).trim())) { toast('Enter the team number'); return false; }
+    if (!/^\d+$/.test(String(d.match).trim())) { toast('Enter the match number'); return false; }
+    return true;
+  }
+  function save() {
+    if (!validate()) return;
+    d.team = String(d.team).trim(); d.match = String(d.match).trim();
+    if (!rec) {
+      const ex = activeOf('field').find(r => String(r.data.team) === d.team && String(r.data.match) === d.match);
+      if (ex && !confirm('Team ' + d.team + ' match ' + d.match + ' was already scouted by ' + userName(ex.data.scoutById, ex.data.scout) + '. Save yours too?')) return;
+    }
+    d.scoutById = me().id; d.scout = me().data.name;
+    upsertRec('field', { ...d }, rec && rec.id);
+    if (rec) { toast('Saved'); go('saved'); return; }
+    const next = String(Number(d.match) + 1);
+    toast('Saved · ready for match ' + next);
+    go('field', { match: next, robot: d.robot });
+  }
+
+  function build() {
+    const out = [
+      h('div', { class: 'card' },
+        h('div', { class: 'info' },
+          h('div', {}, h('label', {}, 'Team'), h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: '0000', value: d.team || '', oninput: e => { d.team = e.target.value; } })),
+          h('div', {}, h('label', {}, 'Match'), h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: '0', value: d.match || '', oninput: e => { d.match = e.target.value; } }))),
+        h('div', { class: 'robots' }, ['Red 1', 'Red 2', 'Blue 1', 'Blue 2'].map(r =>
+          h('button', { type: 'button', class: (r[0] === 'R' ? 'red' : 'blue') + (d.robot === r ? ' on' : ''), onclick: () => { d.robot = d.robot === r ? '' : r; draw(); } }, r)))),
+      h('div', { class: 'tabwrap' }, h('div', { class: 'tabs' }, [['auton', 'Auton'], ['tele', 'Tele-Op'], ['notes', 'Notes']].map(([k, l]) =>
+        h('button', { type: 'button', class: tab === k ? 'on' : '', onclick: () => { tab = k; draw(); scrollTo(0, 0); } }, l))))
+    ];
+    if (tab === 'auton') out.push(...phase('a_'));
+    else if (tab === 'tele') out.push(...phase('t_'));
+    else out.push(h('label', { class: 'l' }, 'Other notes'), h('textarea', { rows: 6, placeholder: 'Anything worth remembering about this robot', oninput: e => { d.notes = e.target.value; } }, d.notes || ''));
+    if (rec) out.push(h('button', { class: 'btn d full', type: 'button', onclick: () => { if (confirm('Delete this entry for everyone?')) { removeRec(rec.id); toast('Deleted'); go('saved'); } } }, ico('trash', 18), 'Delete entry'));
+    out.push(h('div', { class: 'savebar' }, h('button', { class: 'btn', type: 'button', onclick: save }, ico('check', 22), rec ? 'Save changes' : 'Save match')));
+    return out;
+  }
+  function draw() { const y = scrollY; root.replaceChildren(...build().flat(Infinity).filter(Boolean)); scrollTo(0, y); }
+  draw();
+  return root;
+}
+
+/* ================= data helpers ================= */
+function teamIndex() {
+  const T = {};
+  const get = n => (T[n] ??= { team: n, name: '', targetId: null, assignedTo: null, isTarget: false, pit: [], field: [] });
+  for (const r of Object.values(records)) {
+    if (r.deleted) continue;
+    if (r.type === 'target') {
+      const t = get(String(r.data.team));
+      t.name = r.data.name || t.name; t.targetId = r.id; t.assignedTo = r.data.assignedTo || null; t.isTarget = true;
+    } else if (r.type === 'pit' || r.type === 'field') {
+      const n = String(r.data.team || '').trim(); if (!n) continue;
+      const t = get(n); t[r.type].push(r);
+      if (r.type === 'pit' && r.data.teamName) t.name = t.name || r.data.teamName;
+    }
+  }
+  return Object.values(T).sort((a, b) => numSort(a.team, b.team));
+}
+const scouters = recs => [...new Set(recs.map(r => userName(r.data.scoutById, r.data.scout)))];
+const scouted = t => t.pit.length > 0 || t.field.length > 0;
+
+/* ================= views ================= */
+const views = {};
+let boardF = { f: 'all', q: '' };
+
+views.board = () => {
+  const all = teamIndex();
+  const targets = all.filter(t => t.isTarget);
+  const done = targets.filter(scouted).length;
+  const listEl = h('div');
+  const draw = () => {
+    const q = boardF.q.trim().toLowerCase();
+    const list = all.filter(t => {
+      if (q && !(t.team.includes(q) || t.name.toLowerCase().includes(q))) return false;
+      if (boardF.f === 'todo') return !scouted(t);
+      if (boardF.f === 'nopit') return t.pit.length === 0;
+      if (boardF.f === 'mine') return t.assignedTo === session;
+      return true;
+    });
+    listEl.replaceChildren(...(list.length ? list.map(teamCard) : [h('p', { class: 'meta' }, all.length ? 'No teams match.' : 'No teams yet. ' + (isAdmin() ? 'Add teams in More → Admin.' : 'Ask your admin to add teams, or just start scouting.'))]));
+  };
+  const chips = h('div', { class: 'chips' });
+  const drawChips = () => chips.replaceChildren(...[['all', 'All'], ['todo', 'To do'], ['nopit', 'Needs pit'], ['mine', 'Mine']]
+    .map(([k, l]) => h('button', { class: boardF.f === k ? 'on' : '', onclick: () => { boardF.f = k; drawChips(); draw(); } }, l)));
+  drawChips(); draw();
+  return h('div', {},
+    h('h1', {}, 'Scouting board'),
+    targets.length ? h('div', {}, h('div', { class: 'meta' }, done + ' of ' + targets.length + ' target teams scouted'), h('div', { class: 'bar-prog' }, h('div', { style: 'width:' + Math.round(100 * done / targets.length) + '%' }))) : null,
+    h('input', { type: 'search', placeholder: 'Search team # or name', value: boardF.q, oninput: e => { boardF.q = e.target.value; draw(); } }),
+    chips, listEl);
+};
+function teamCard(t) {
+  const who = recs => scouters(recs).join(', ');
+  return h('div', { class: 'card tap', onclick: () => go('team', t.team) },
+    h('div', { class: 'row' }, h('b', { class: 'tnum' }, t.team), t.name ? h('span', { class: 'tname' }, t.name) : null, h('span', { class: 'sp' }),
+      h('span', { class: 'badge ' + (t.pit.length ? 'ok' : 'no') }, t.pit.length ? 'Pit ✓' : 'Pit —'),
+      h('span', { class: 'badge ' + (t.field.length ? 'ok' : 'no') }, t.field.length ? t.field.length + ' match' + (t.field.length > 1 ? 'es' : '') : 'No matches')),
+    h('div', { class: 'meta' }, (t.pit.length ? 'Pit by ' + who(t.pit) : '') + (t.pit.length && t.field.length ? ' · ' : '') + (t.field.length ? 'Matches by ' + who(t.field) : ''),
+      !scouted(t) ? 'Not scouted yet' : '', t.assignedTo ? ' · Assigned: ' + userName(t.assignedTo, '?') : ''));
+}
+
+views.team = n => {
+  const t = teamIndex().find(x => x.team === n);
+  if (!t) return views.board();
+  const fieldRecs = [...t.field].sort((a, b) => numSort(a.data.match, b.data.match));
+  const out = [
+    h('button', { class: 'btn o s', onclick: () => go('board') }, ico('back', 16), 'Board'),
+    h('h1', {}, 'Team ' + t.team + (t.name ? ' — ' + t.name : '')),
+    t.assignedTo ? h('div', { class: 'meta' }, 'Assigned to ' + userName(t.assignedTo, '?')) : null,
+    h('div', { class: 'row', style: 'margin-top:8px' },
+      h('button', { class: 'btn', onclick: () => go('field', { team: t.team }) }, ico('plus', 18), 'Match'),
+      h('button', { class: 'btn', onclick: () => go('pit', { team: t.team, teamName: t.name }) }, ico('plus', 18), 'Pit'))
+  ];
+  out.push(h('h2', {}, 'Pit'));
+  if (!t.pit.length) out.push(h('p', { class: 'meta' }, 'No pit scouting yet.'));
+  else {
+    const p = [...t.pit].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+    const rows = SCHEMAS.pit.filter(f => f.key !== 'team' && (!f.showIf || f.showIf(p.data)) && p.data[f.key] !== '' && p.data[f.key] != null)
+      .map(f => h('tr', {}, h('td', {}, f.label), h('td', {}, String(p.data[f.key]))));
+    out.push(h('div', { class: 'card tap', onclick: () => go('edit', p.id) },
+      h('div', { class: 'meta' }, 'By ' + userName(p.data.scoutById, p.data.scout) + ' · ' + fmtTime(p.updatedAt) + ' · tap to edit'), h('table', {}, rows)));
+  }
+  out.push(h('h2', {}, 'Match averages (' + fieldRecs.length + ')'));
+  if (!fieldRecs.length) out.push(h('p', { class: 'meta' }, 'No matches scouted yet.'));
+  else {
+    const n = fieldRecs.length, rows = [];
+    for (const f of SCHEMAS.field) {
+      if (f.type === 'counter') rows.push(h('tr', {}, h('td', {}, (f.key[0] === 'a' ? 'Auton: ' : 'Tele-op: ') + (f.short || f.label)), h('td', {}, (fieldRecs.reduce((s, r) => s + (Number(r.data[f.key]) || 0), 0) / n).toFixed(1))));
+      if (f.type === 'check') rows.push(h('tr', {}, h('td', {}, (f.key[0] === 'a' ? 'Auton: ' : 'Tele-op: ') + (f.short || f.label)), h('td', {}, fieldRecs.filter(r => r.data[f.key]).length + '/' + n)));
+    }
+    out.push(h('div', { class: 'card' }, h('table', {}, rows)));
+    out.push(h('h2', {}, 'Matches'));
+    for (const r of fieldRecs) out.push(h('div', { class: 'card tap', onclick: () => go('edit', r.id) },
+      h('div', { class: 'row' }, h('b', {}, 'Match ' + r.data.match), r.data.robot ? h('span', { class: 'badge' }, r.data.robot) : null, h('span', { class: 'sp' }), h('span', { class: 'meta' }, userName(r.data.scoutById, r.data.scout))),
+      r.data.notes ? h('div', { class: 'meta' }, r.data.notes) : null));
+  }
+  return h('div', {}, out);
+};
+
+views.field = pre => fieldFormView(null, pre);
+views.pit = pre => pitFormView(null, pre);
+views.edit = id => { const r = records[id]; if (!r || r.deleted) return views.saved(); return r.type === 'field' ? fieldFormView(r) : r.type === 'pit' ? pitFormView(r) : views.saved(); };
+
+let savedF = { mine: true, type: 'all' };
+views.saved = () => {
+  const chips = h('div', { class: 'chips' }), listEl = h('div');
+  const draw = () => {
+    chips.replaceChildren(
+      ...[['Mine', true], ['Everyone', false]].map(([l, v]) => h('button', { class: savedF.mine === v ? 'on' : '', onclick: () => { savedF.mine = v; draw(); } }, l)),
+      ...[['all', 'All'], ['field', 'Match'], ['pit', 'Pit']].map(([k, l]) => h('button', { class: savedF.type === k ? 'on' : '', onclick: () => { savedF.type = k; draw(); } }, l)));
+    const list = Object.values(records).filter(r => !r.deleted && (r.type === 'field' || r.type === 'pit') && (savedF.type === 'all' || r.type === savedF.type) && (!savedF.mine || r.data.scoutById === session))
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+    listEl.replaceChildren(...(list.length ? list.map(r => h('div', { class: 'card tap', onclick: () => go('edit', r.id) },
+      h('div', { class: 'row' }, h('span', { class: 'badge warn' }, r.type === 'field' ? 'Match' : 'Pit'), h('b', {}, 'Team ' + r.data.team + (r.type === 'field' ? ' · M' + r.data.match : '')), h('span', { class: 'sp' }),
+        r.dirty ? h('span', { class: 'badge no' }, 'waiting') : h('span', { class: 'badge ok' }, 'synced')),
+      h('div', { class: 'meta' }, userName(r.data.scoutById, r.data.scout) + ' · ' + fmtTime(r.updatedAt)))) : [h('p', { class: 'meta' }, 'Nothing saved yet.')]));
+  };
+  draw();
+  return h('div', {}, h('h1', {}, 'Saved entries'), chips, listEl);
+};
+
+views.more = () => {
+  const oldPw = h('input', { type: 'password', placeholder: 'Current password', autocomplete: 'current-password' });
+  const newPw = h('input', { type: 'password', placeholder: 'New password (4+ characters)', autocomplete: 'new-password' });
+  const conf = h('input', { type: 'password', placeholder: 'Repeat new password', autocomplete: 'new-password' });
+  const pwBtn = h('button', { class: 'btn full', onclick: () => changePassword(oldPw.value, newPw.value, conf.value, pwBtn) }, ico('key', 18), 'Update password');
+  return h('div', {},
+    h('h1', {}, 'More'),
+    h('div', { class: 'card' }, h('div', { class: 'row' }, h('b', {}, me().data.name), h('span', { class: 'badge' }, me().data.role))),
+    auth.isDefault ? h('div', { class: 'notice' }, 'You are still using the default password (1111). Please change it below.') : null,
+    isAdmin() ? h('button', { class: 'btn full', onclick: () => go('admin') }, ico('shield', 18), 'Admin: users & teams') : null,
+    h('h2', {}, 'Change password'), oldPw, newPw, conf, pwBtn,
+    h('h2', {}, 'Sync'),
+    h('div', { class: 'meta' }, pendingCount() + ' change(s) waiting to upload'),
+    h('button', { class: 'btn full', onclick: async () => { const ok = await sync(true); toast(ok ? 'Synced ✓' : (lastError || 'Could not sync')); go('more'); } }, ico('refresh', 18), 'Sync now'),
+    h('button', { class: 'btn o full', onclick: async () => { since = 0; persist(); const ok = await sync(true); toast(ok ? 'Re-downloaded everything' : (lastError || 'Could not sync')); } }, 'Re-download everything'),
+    h('h2', {}, 'Export'),
+    h('div', { class: 'row' }, h('button', { class: 'btn o', onclick: () => exportCSV('field') }, ico('download', 18), 'Matches CSV'), h('button', { class: 'btn o', onclick: () => exportCSV('pit') }, ico('download', 18), 'Pit CSV')),
+    isAdmin() ? h('details', { style: 'margin-top:18px' }, h('summary', {}, 'Server settings (admin)'),
+      h('label', { class: 'l' }, 'Backend URL'), h('input', { value: settings.url, autocapitalize: 'off', onchange: e => { settings.url = e.target.value.trim(); persist(); sync(true); } }),
+      h('label', { class: 'l' }, 'Team key'), h('input', { value: settings.key, autocapitalize: 'off', onchange: e => { settings.key = e.target.value.trim(); persist(); sync(true); } }),
+      h('button', { class: 'btn o full', onclick: () => { settings = { url: DEFAULT_URL, key: DEFAULT_KEY }; since = 0; persist(); sync(true); toast('Reset to built-in settings'); go('more'); } }, 'Reset to built-in settings')) : null,
+    h('h2', {}, 'Account'),
+    h('button', { class: 'btn d full', onclick: logout }, ico('logout', 18), 'Log out'));
+};
+
+views.admin = () => {
+  if (!isAdmin()) return views.board();
+  const keep = f => () => { const y = scrollY; f(); render(); scrollTo(0, y); };
+  const us = users().sort((a, b) => a.data.name.localeCompare(b.data.name));
+  const admins = us.filter(u => u.data.role === 'admin').length;
+  const nameTaken = (name, exceptId) => users().some(u => u.id !== exceptId && u.data.name.trim().toLowerCase() === name.trim().toLowerCase());
+  const newUser = h('input', { placeholder: 'New username', autocapitalize: 'off' });
+  const addUser = keep(() => {
+    const n = newUser.value.trim(); if (!n) return;
+    if (nameTaken(n)) { toast('That username already exists'); return; }
+    upsertRec('user', { name: n, role: 'scout' }); toast('Added · password is 1111');
+  });
+  const userCards = us.map(u => h('div', { class: 'card' },
+    h('div', { class: 'row' },
+      h('input', { value: u.data.name, style: 'flex:1;min-width:120px', autocapitalize: 'off', onchange: e => {
+        const n = e.target.value.trim();
+        if (!n || nameTaken(n, u.id)) { toast('Invalid or duplicate name'); e.target.value = u.data.name; return; }
+        keep(() => upsertRec('user', { ...u.data, name: n }, u.id))();
+      } }),
+      h('select', { style: 'width:auto', onchange: e => {
+        if (u.data.role === 'admin' && e.target.value !== 'admin' && admins <= 1) { toast('Keep at least one admin'); e.target.value = 'admin'; return; }
+        keep(() => upsertRec('user', { ...u.data, role: e.target.value }, u.id))();
+      } }, ['scout', 'admin'].map(r => h('option', { value: r, selected: u.data.role === r }, r)))),
+    h('div', { class: 'row', style: 'margin-top:8px' },
+      u.id !== session ? h('button', { class: 'btn o s', onclick: () => resetPassword(u) }, ico('key', 16), 'Reset password') : null,
+      h('span', { class: 'sp' }),
+      h('button', { class: 'btn d s', onclick: () => {
+        if (u.data.role === 'admin' && admins <= 1) { toast('Keep at least one admin'); return; }
+        if (u.id === session && !confirm('Remove yourself? You will be logged out.')) return;
+        if (u.id !== session && !confirm('Remove ' + u.data.name + '? Their past scouting stays.')) return;
+        keep(() => removeRec(u.id))();
+      } }, ico('trash', 16), 'Remove'))));
+  const bulk = h('textarea', { rows: 4, placeholder: 'One per line or comma-separated:\n8533 Miners\n1234\n5678 Robo Bees' });
+  const addTeams = keep(() => {
+    const existing = new Set(activeOf('target').map(r => String(r.data.team)));
+    let added = 0;
+    for (const line of bulk.value.split(/[\n,;]+/)) {
+      const m = line.trim().match(/^(\d+)\s*(.*)$/); if (!m || existing.has(m[1])) continue;
+      upsertRec('target', { team: m[1], name: m[2].trim(), assignedTo: '' }); existing.add(m[1]); added++;
+    }
+    toast(added ? 'Added ' + added + ' team(s)' : 'No new teams found');
+  });
+  const targets = activeOf('target').sort((a, b) => numSort(a.data.team, b.data.team));
+  const targetCards = targets.map(r => h('div', { class: 'card' },
+    h('div', { class: 'row' }, h('b', { class: 'tnum' }, r.data.team),
+      h('input', { value: r.data.name || '', placeholder: 'Team name', style: 'flex:1;min-width:100px', onchange: e => keep(() => upsertRec('target', { ...r.data, name: e.target.value.trim() }, r.id))() }),
+      h('button', { class: 'btn d s', 'aria-label': 'Remove team', onclick: keep(() => removeRec(r.id)) }, ico('x', 16))),
+    h('select', { style: 'margin-top:8px', onchange: e => keep(() => upsertRec('target', { ...r.data, assignedTo: e.target.value }, r.id))() },
+      h('option', { value: '' }, 'Unassigned'), users().map(u => h('option', { value: u.id, selected: r.data.assignedTo === u.id }, 'Assigned: ' + u.data.name)))));
+  return h('div', {},
+    h('button', { class: 'btn o s', onclick: () => go('more') }, ico('back', 16), 'More'),
+    h('h1', {}, 'Admin'),
+    h('h2', {}, 'Users (' + us.length + ')'),
+    h('div', { class: 'meta' }, 'New users sign in with password 1111 and can change it under More.'),
+    h('div', { class: 'row', style: 'margin-top:8px;flex-wrap:nowrap' }, newUser, h('button', { class: 'btn', onclick: addUser }, ico('plus', 18), 'Add')),
+    userCards,
+    h('h2', {}, 'Teams to scout (' + targets.length + ')'),
+    bulk, h('button', { class: 'btn full', onclick: addTeams }, ico('plus', 18), 'Add teams'), targetCards);
+};
+
+/* ================= server calls, login, passwords ================= */
+async function api(payload) {
+  if (!settings.url) throw new Error('Backend URL is empty');
+  const res = await fetch(settings.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: settings.key, ...payload }) });
+  const txt = await res.text(); let j;
+  try { j = JSON.parse(txt); } catch { throw new Error('Server sent a web page, not data: ' + txt.slice(0, 60).replace(/\s+/g, ' ')); }
+  return j;
+}
+function logout() { session = null; auth = {}; persist(); render(); }
+
+async function signIn(name, pw, msgEl, btn) {
+  name = name.trim();
+  if (!name || !pw) { msgEl.textContent = 'Enter your username and password'; return; }
+  btn.disabled = true; msgEl.textContent = 'Signing in…';
+  const key = name.toLowerCase(), creds = LS.get('scout.cred', {});
+  try {
+    const j = await api({ action: 'login', name, password: pw });
+    if (!j.ok) { msgEl.textContent = j.error || 'Could not sign in'; btn.disabled = false; return; }
+    records[j.user.id] = { ...j.user, dirty: false };
+    session = j.user.id; auth = { token: j.token, isDefault: !!j.isDefault };
+    const hs = await sha('mphs|' + key + '|' + pw);
+    if (hs) { creds[key] = { h: hs, id: session, token: j.token, d: !!j.isDefault }; LS.set('scout.cred', creds); }
+    LS.set('scout.lastUser', j.user.data.name);
+    persist(); view = { name: 'board', arg: null }; render(); sync();
+  } catch (e) {
+    const c = creds[key], hs = c ? await sha('mphs|' + key + '|' + pw) : '';
+    if (c && hs && hs === c.h && records[c.id] && !records[c.id].deleted) {
+      session = c.id; auth = { token: c.token, isDefault: c.d }; persist(); render(); sync(); toast('Signed in offline'); return;
+    }
+    msgEl.textContent = "Can't reach the server (" + (e.message || 'offline') + '). Connect to the internet to sign in.';
+    btn.disabled = false;
+  }
+}
+
+async function changePassword(oldPw, newPw, conf, btn) {
+  if (!oldPw) { toast('Enter your current password'); return; }
+  if (newPw.length < 4) { toast('New password must be at least 4 characters'); return; }
+  if (newPw !== conf) { toast('New passwords do not match'); return; }
+  btn.disabled = true;
+  try {
+    const j = await api({ action: 'setpw', userId: session, token: auth.token, oldPw, newPw });
+    if (!j.ok) { toast(j.error || 'Could not change password'); if (j.error === 'Please sign in again') logout(); btn.disabled = false; return; }
+    auth = { token: j.token, isDefault: false }; persist();
+    const key = me().data.name.trim().toLowerCase(), creds = LS.get('scout.cred', {}), hs = await sha('mphs|' + key + '|' + newPw);
+    if (hs) { creds[key] = { h: hs, id: session, token: j.token, d: false }; LS.set('scout.cred', creds); }
+    toast('Password updated'); go('more');
+  } catch (e) { toast("Can't reach the server"); btn.disabled = false; }
+}
+
+async function resetPassword(u) {
+  if (!confirm('Reset ' + u.data.name + "'s password to 1111?")) return;
+  try {
+    const j = await api({ action: 'resetpw', userId: session, token: auth.token, targetId: u.id });
+    toast(j.ok ? u.data.name + ' reset to 1111' : (j.error || 'Could not reset'));
+  } catch (e) { toast("Can't reach the server"); }
+}
+
+/* ================= login screen (setup tools hidden: tap the logo 5 times) ================= */
+let logoTaps = 0, logoTimer, loginName = LS.get('scout.lastUser', ''), loginMsg = '';
+function tapLogo() {
+  logoTaps++; clearTimeout(logoTimer); logoTimer = setTimeout(() => { logoTaps = 0; }, 2500);
+  if (logoTaps >= 5) { logoTaps = 0; showSetup = !showSetup; render(); toast(showSetup ? 'Setup menu unlocked' : 'Setup menu hidden'); }
+}
+function loginView() {
+  const nameIn = h('input', { placeholder: 'Username', autocapitalize: 'off', autocomplete: 'username', autocorrect: 'off', value: loginName, oninput: e => { loginName = e.target.value; } });
+  const pwIn = h('input', { type: 'password', placeholder: 'Password', autocomplete: 'current-password' });
+  const msg = h('p', { class: 'err' }, loginMsg);
+  const btn = h('button', { class: 'btn full', onclick: () => signIn(nameIn.value, pwIn.value, msg, btn) }, 'Sign in');
+  pwIn.addEventListener('keydown', e => { if (e.key === 'Enter') btn.click(); });
+  const out = [
+    h('img', { src: 'logo-white.png', alt: 'MPHS', class: 'big-logo', draggable: 'false', onclick: tapLogo }),
+    h('h1', {}, 'MPHS Scout'), h('p', { class: 'sub' }, 'Sign in to start scouting'),
+    nameIn, pwIn, msg, btn
+  ];
+  if (showSetup) {
+    const url = h('input', { placeholder: 'Backend URL', value: settings.url, autocapitalize: 'off' });
+    const key = h('input', { placeholder: 'Team key', value: settings.key, autocapitalize: 'off' });
+    out.push(h('div', { class: 'setup' },
+      h('label', { class: 'l' }, 'Backend URL'), url, h('label', { class: 'l' }, 'Team key'), key,
+      h('button', { class: 'btn o full', onclick: async () => { settings.url = url.value.trim(); settings.key = key.value.trim(); persist(); try { const j = await api({ since: 0, records: [] }); lastError = j.ok ? '' : (j.error || 'Server error'); toast(j.ok ? 'Server reachable ✓' : lastError); } catch (e) { lastError = String(e.message || e); toast(lastError); } render(); } }, 'Save & test connection'),
+      h('button', { class: 'btn o full', onclick: () => { settings = { url: DEFAULT_URL, key: DEFAULT_KEY }; since = 0; persist(); render(); toast('Reset to built-in settings'); } }, 'Reset to built-in settings'),
+      h('button', { class: 'btn o full', onclick: () => { showSetup = false; render(); } }, 'Hide setup'),
+      lastError ? h('p', { class: 'err' }, 'Last error: ' + lastError) : null));
+  }
+  return h('div', { class: 'login' }, out);
+}
+
+/* ================= shell ================= */
+function pillText() { return syncing ? 'Syncing…' : lastStatus.text; }
+function topbar() {
+  return h('header', { class: 'top' }, h('img', { src: 'logo-white.png', class: 'logo-s', alt: '' }), h('span', { class: 'brand' }, 'MPHS Scout'), h('span', { class: 'sp' }),
+    h('button', { class: 'pill' + (lastStatus.bad ? ' bad' : '') + (syncing ? ' spin' : ''), id: 'status', 'aria-label': 'Sync status', onclick: openSheet }, ico('refresh', 14), h('span', { class: 't' }, pillText())));
+}
+function navbar() {
+  const active = { board: 'board', team: 'board', field: 'field', pit: 'pit', saved: 'saved', edit: 'saved', more: 'more', admin: 'more' }[view.name];
+  return h('nav', { class: 'bar' }, [['board', 'board', 'Board'], ['field', 'flag', 'Match'], ['pit', 'wrench', 'Pit'], ['saved', 'save', 'Saved'], ['more', 'more', 'More']]
+    .map(([k, i, l]) => h('button', { class: active === k ? 'on' : '', onclick: () => go(k) }, ico(i, 24), l)));
+}
+function go(name, arg) { view = { name, arg: arg ?? null }; render(); scrollTo(0, 0); }
+function render() {
+  const app = $('#app');
+  if (!me() || !auth.token) { app.replaceChildren(loginView()); drawSheet(); return; }
+  const y = scrollY;
+  app.replaceChildren(topbar(), h('main', {}, (views[view.name] || views.board)(view.arg)), navbar());
+  scrollTo(0, y); drawSheet();
+}
+function setStatus(text, bad) {
+  lastStatus = { text, bad: !!bad };
+  const el = $('#status');
+  if (el) { el.classList.toggle('bad', !!bad); el.classList.toggle('spin', syncing); const t = $('span.t', el); if (t) t.textContent = pillText(); }
+  drawSheet();
+}
+
+/* ---------- sync menu (tap the status pill) ---------- */
+function describe(r) {
+  const d = r.data || {}; let t;
+  if (r.type === 'field') t = 'Match ' + d.match + ' · Team ' + d.team;
+  else if (r.type === 'pit') t = 'Pit · Team ' + d.team;
+  else if (r.type === 'user') t = 'User · ' + d.name;
+  else t = 'Team to scout · ' + d.team;
+  return t + (r.deleted ? ' (deleted)' : '');
+}
+function openSheet() { sheetOpen = true; drawSheet(); }
+function closeSheet() { sheetOpen = false; drawSheet(); }
+function drawSheet() {
+  let el = $('#sheet');
+  if (!sheetOpen || !me()) { if (el) el.remove(); return; }
+  if (!el) { el = h('div', { id: 'sheet', class: 'sheet-wrap' }); document.body.append(el); }
+  const pend = pendingList().sort((a, b) => b.updatedAt - a.updatedAt);
+  el.replaceChildren(h('div', { class: 'scrim', onclick: closeSheet }),
+    h('div', { class: 'sheet' },
+      h('div', { class: 'grab' }), h('h3', {}, 'Sync'),
+      h('div', { class: 'meta' }, syncing ? 'Syncing…' : lastStatus.text),
+      lastError && !syncing ? h('div', { class: 'notice' }, lastError) : null,
+      pend.length ? h('div', {}, h('div', { class: 'sub-h' }, pend.length + ' waiting to upload'), h('div', { class: 'plist' }, pend.map(r => h('div', {}, h('span', {}, describe(r)), h('span', { class: 'meta', style: 'margin:0' }, fmtTime(r.updatedAt))))))
+        : h('div', { class: 'empty' }, ico('check', 20), 'Everything is uploaded'),
+      h('button', { class: 'btn full', disabled: syncing, onclick: async () => { const ok = await sync(true); toast(ok ? 'Synced ✓' : (lastError || 'Could not sync')); } }, ico('refresh', 18), syncing ? 'Syncing…' : 'Sync now'),
+      h('button', { class: 'btn o full', onclick: closeSheet }, 'Close')));
+}
+
+/* ================= sync ================= */
+async function sync(manual) {
+  if (!settings.url) { lastError = 'Backend URL is empty'; setStatus('No server set', true); return false; }
+  if (!session || !auth.token) return false;
+  if (syncing) { if (!manual) return false; while (syncing) await new Promise(r => setTimeout(r, 200)); }
+  syncing = true; lastError = ''; setStatus('Syncing…');
+  const usersBefore = users().length;
+  try {
+    const pending = pendingList();
+    const snap = Object.fromEntries(pending.map(r => [r.id, r.updatedAt]));
+    const j = await api({ userId: session, token: auth.token, since, records: pending.map(({ dirty, ...r }) => r) });
+    if (!j.ok) throw new Error(j.error || 'Server error');
+    if (j.auth === false) {
+      session = null; auth = {}; persist(); syncing = false; setStatus('Signed out', true); render();
+      loginMsg = ''; toast('Please sign in again — your saved entries are kept'); return false;
+    }
+    const rejected = new Set(j.rejected || []);
+    for (const r of pending) {
+      const cur = records[r.id];
+      if (!cur || cur.updatedAt !== snap[r.id]) continue;
+      cur.dirty = false;
+      if (rejected.has(r.id)) { cur.updatedAt = 0; cur.deleted = true; }
+    }
+    if (rejected.size) { since = 0; lastError = 'Not allowed: ' + (j.reason || 'admin only'); toast(lastError); }
+    for (const s of j.records || []) {
+      const l = records[s.id];
+      if (!l || (!l.dirty && s.updatedAt >= l.updatedAt)) records[s.id] = { ...s, dirty: false };
+    }
+    if (!rejected.size) since = j.now;
+    persist();
+    syncing = false;
+    setStatus('Synced ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
+    afterSync(usersBefore);
+    if (pendingCount()) setTimeout(() => sync(), 400);   // something was saved while this sync ran
+    return true;
+  } catch (e) {
+    lastError = String((e && e.message) || e);
+    syncing = false;
+    setStatus(pendingCount() ? 'Offline · ' + pendingCount() + ' pending' : 'Offline', true);
+    return false;
+  } finally { syncing = false; }
+}
+function afterSync() {
+  if (session && !me()) { session = null; auth = {}; persist(); render(); toast('You were removed. Ask your admin.'); return; }
+  if (['board', 'saved', 'team'].includes(view.name)) render();
+}
+
+/* ================= export ================= */
+async function exportCSV(type) {
+  const schemaKeys = SCHEMAS[type].map(f => f.key);
+  const recs = activeOf(type).sort((a, b) => numSort(a.data.team, b.data.team));
+  const esc = v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const lines = [['scout', 'updated', ...schemaKeys].join(',')];
+  for (const r of recs) lines.push([userName(r.data.scoutById, r.data.scout), new Date(r.updatedAt).toISOString(), ...schemaKeys.map(k => r.data[k])].map(esc).join(','));
+  const file = new File([lines.join('\n')], 'mphs-' + type + '.csv', { type: 'text/csv' });
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; } } catch { return; }
+  const a = h('a', { href: URL.createObjectURL(file), download: file.name }); document.body.append(a); a.click(); a.remove();
+}
+
+/* ================= start ================= */
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+window.addEventListener('online', () => sync());
+document.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
+setInterval(() => { if (navigator.onLine) sync(); }, 30000);
+render();
+sync();
+</script>
+</body>
+</html>
