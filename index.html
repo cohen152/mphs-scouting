@@ -507,9 +507,10 @@ function loginView() {
     h('h1', {}, '🐝 BioBuzz Scout'),
     h('p', { class: 'meta' }, 'Enter your username to start scouting.'),
     inp, msg,
-    h('p', { class: 'meta' }, 'Server: ' + (settings.url ? settings.url.slice(0, 48) + '…' : 'NOT SET') + ' · key: ' + (settings.key ? settings.key.length + ' chars' : 'NOT SET') + (lastError ? ' · last error: ' + lastError : '')),
+    h('p', { class: 'meta' }, 'Server: ' + (settings.url ? '…' + settings.url.slice(-16) : 'NOT SET') + ' · key: ' + (settings.key ? '[' + settings.key + ']' : 'NOT SET') + (lastError ? ' · last error: ' + lastError : '')),
     h('button', { class: 'btn y full', onclick: tryLogin }, 'Sign in'),
     chips,
+    h('button', { class: 'btn o full', onclick: () => { settings = { url: DEFAULT_URL, key: DEFAULT_KEY }; since = 0; persist(); render(); sync(true); toast('Reset to built-in settings'); } }, 'Reset to built-in settings'),
     h('button', { class: 'btn o full', onclick: async () => {
       settings.url = url.value.trim(); settings.key = key.value.trim(); persist();
       const ok = await sync(true); toast(ok ? 'Updated' : (lastError || 'Could not reach server')); render();
