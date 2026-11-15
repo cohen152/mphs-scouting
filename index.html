@@ -139,6 +139,22 @@ a.lnk{color:var(--pl);text-decoration:underline;word-break:break-all}
 .seg2{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--card);padding:5px;border-radius:14px;margin:14px 0 4px}
 .seg2 button{border:0;background:transparent;color:var(--mute);font-family:var(--disp);font-size:19px;letter-spacing:.06em;text-transform:uppercase;padding:9px 0;border-radius:10px}
 .seg2 button.on{background:var(--p);color:#fff}
+/* offline exchange + hub */
+.qrbox{background:#fff;border-radius:18px;padding:8px;width:min(100%,360px);aspect-ratio:1;margin:12px auto;display:grid;place-items:center}
+.qrbox canvas{width:100%;height:100%;image-rendering:pixelated}
+.qrbox img{display:none;width:64%}
+.qrbox.idle{background:var(--p)}.qrbox.idle canvas{display:none}.qrbox.idle img{display:block}
+.qlabel{text-align:center;min-height:1.2em;margin:0}
+.xstat{font-weight:600;text-align:center;margin:8px 0;min-height:1.4em}
+.camwrap{position:relative;margin-top:10px}
+.cam{display:block;width:100%;height:240px;object-fit:cover;border-radius:16px;background:#000}
+.camwrap .flip{position:absolute;right:8px;bottom:8px}
+.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 6px;text-align:center;font-size:12px;color:var(--mute)}
+.stat b{display:block;font-family:var(--disp);font-weight:400;font-size:34px;line-height:1.05;color:#fff}
+.hubgrid{display:grid;gap:14px}
+main.wide{max-width:1100px}
+@media (orientation:landscape) and (min-width:760px){.hubgrid{grid-template-columns:1fr 1fr;align-items:start}.hubgrid .qrbox{width:min(100%,520px)}.hubgrid .cam{height:min(60vh,420px)}}
 details summary{cursor:pointer;color:var(--pl);padding:8px 0}
 </style>
 </head>
@@ -211,7 +227,7 @@ let session = LS.get('scout.session', null);
 let auth = LS.get('scout.auth', {});
 let view = { name: 'board', arg: null };
 let lastStatus = { text: 'Not synced yet', bad: false };
-let showSetup = false, sheetOpen = false, syncing = false, lastError = '';
+let showSetup = false, sheetOpen = false, syncing = false, lastError = '', libsWarmed = false;
 function persist() {
   LS.set('scout.records', records); LS.set('scout.since', since); LS.set('scout.session', session);
   LS.set('scout.auth', auth); LS.set('scout.settings', settings);
@@ -226,7 +242,12 @@ const pendingCount = () => pendingList().length;
 
 function upsertRec(type, data, id) {
   const r = { id: id || uid(), type, data, updatedAt: Date.now(), deleted: false, dirty: true };
-  records[r.id] = r; persist(); sync(); return r;
+  records[r.id] = r; persist(); sync();
+  if ((type === 'field' || type === 'pit') && lastStatus.bad) {
+    const n = unsharedCount();
+    if (n && n % 6 === 0) setTimeout(() => toast(n + ' entries not shared yet. Swap with the hub.'), 1800);
+  }
+  return r;
 }
 function removeRec(id) {
   const r = records[id]; if (!r) return;
@@ -548,6 +569,8 @@ views.team = n => {
 };
 
 views.field = pre => fieldFormView(null, pre);
+views.exchange = () => exchangeView();
+views.hub = () => hubView();
 views.pit = pre => pitFormView(null, pre);
 views.edit = id => { const r = records[id]; if (!r || r.deleted) return views.saved(); return r.type === 'field' ? fieldFormView(r) : r.type === 'pit' ? pitFormView(r) : views.saved(); };
 
@@ -584,6 +607,15 @@ views.more = () => {
     h('div', { class: 'meta' }, pendingCount() + ' change(s) waiting to upload'),
     h('button', { class: 'btn full', onclick: async () => { const ok = await sync(true); toast(ok ? 'Synced ✓' : (lastError || 'Could not sync')); go('more'); } }, ico('refresh', 18), 'Sync now'),
     h('button', { class: 'btn o full', onclick: async () => { since = 0; persist(); const ok = await sync(true); toast(ok ? 'Re-downloaded everything' : (lastError || 'Could not sync')); } }, 'Re-download everything'),
+    h('h2', {}, 'No signal? Offline tools'),
+    h('div', { class: 'meta' }, unsharedCount() + ' entries not yet swapped with a hub'),
+    h('button', { class: 'btn full', onclick: () => go('exchange') }, ico('flag', 18), 'Swap data with the hub'),
+    (isAdmin() || me().data.role === 'hub') ? h('button', { class: 'btn o full', onclick: () => go('hub') }, ico('shield', 18), 'Open hub station on this device') : null,
+    h('div', { class: 'row', style: 'margin-top:10px' },
+      h('button', { class: 'btn o', onclick: exportBackup }, ico('download', 18), 'Share backup file'),
+      h('button', { class: 'btn o', onclick: () => $('#importfile').click() }, ico('plus', 18), 'Import backup')),
+    h('input', { id: 'importfile', type: 'file', accept: '.json,application/json', style: 'display:none', onchange: e => { const f = e.target.files[0]; e.target.value = ''; if (f) importBackup(f); } }),
+    (() => { const b = h('button', { class: 'btn o full', onclick: () => qrSelfTest(b) }, 'Test QR tools'); return b; })(),
     h('h2', {}, 'Export'),
     h('div', { class: 'row' }, h('button', { class: 'btn o', onclick: () => exportCSV('field') }, ico('download', 18), 'Matches CSV'), h('button', { class: 'btn o', onclick: () => exportCSV('pit') }, ico('download', 18), 'Pit CSV')),
     isAdmin() ? h('details', { style: 'margin-top:18px' }, h('summary', {}, 'Server settings (admin)'),
@@ -616,7 +648,7 @@ views.admin = () => {
       h('select', { style: 'width:auto', onchange: e => {
         if (u.data.role === 'admin' && e.target.value !== 'admin' && admins <= 1) { toast('Keep at least one admin'); e.target.value = 'admin'; return; }
         keep(() => upsertRec('user', { ...u.data, role: e.target.value }, u.id))();
-      } }, ['scout', 'admin'].map(r => h('option', { value: r, selected: u.data.role === r }, r)))),
+      } }, ['scout', 'hub', 'admin'].map(r => h('option', { value: r, selected: u.data.role === r }, r)))),
     h('div', { class: 'row', style: 'margin-top:8px' },
       u.id !== session ? h('button', { class: 'btn o s', onclick: () => resetPassword(u) }, ico('key', 16), 'Reset password') : null,
       h('span', { class: 'sp' }),
@@ -762,6 +794,266 @@ function loginView() {
   return h('div', { class: 'login' }, out);
 }
 
+/* ================= offline exchange: QR swap with a hub, backup files ================= */
+const XTYPES = ['field', 'pit', 'target', 'user'];
+let hubState = LS.get('scout.hub', { lastAt: 0, log: [] });
+const saveHub = () => LS.set('scout.hub', hubState);
+const fnv = s => { let x = 0x811c9dc5; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 0x01000193) >>> 0; } return x >>> 0; };
+const stripRec = r => { const { dirty, ...x } = r; return x; };
+const isScoutRec = r => r.type === 'field' || r.type === 'pit';
+const unsharedCount = () => Object.values(records).filter(r => isScoutRec(r) && !r.deleted && r.updatedAt > hubState.lastAt).length;
+
+function mergeIncoming(list, types = XTYPES) {
+  let n = 0;
+  for (const r of list || []) {
+    if (!r || typeof r.id !== 'string' || !types.includes(r.type) || !r.data || typeof r.updatedAt !== 'number') continue;
+    const l = records[r.id];
+    if (!l || r.updatedAt > l.updatedAt) { records[r.id] = { ...stripRec(r), dirty: isScoutRec(r) }; n++; }
+  }
+  persist(); return n;
+}
+
+/* --- compact messages: JSON -> deflate -> base64url -> numbered QR frames --- */
+const b64u = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const unb64u = t => { t = t.replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '='; const s = atob(t), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; };
+async function pipeBytes(u8, stream) { const w = stream.writable.getWriter(); w.write(u8); w.close(); return new Uint8Array(await new Response(stream.readable).arrayBuffer()); }
+async function pack(obj) {
+  let u = new TextEncoder().encode(JSON.stringify(obj)), f = '0';
+  if (typeof CompressionStream !== 'undefined') { try { u = await pipeBytes(u, new CompressionStream('deflate-raw')); f = '1'; } catch {} }
+  return f + b64u(u);
+}
+async function unpack(t) {
+  let u = unb64u(t.slice(1));
+  if (t[0] === '1') u = await pipeBytes(u, new DecompressionStream('deflate-raw'));
+  return JSON.parse(new TextDecoder().decode(u));
+}
+const FRAME_CH = 360;
+async function makeFrames(obj) {
+  const p = await pack(obj), sid = Math.random().toString(36).slice(2, 8), n = Math.max(1, Math.ceil(p.length / FRAME_CH));
+  return Array.from({ length: n }, (_, i) => 'M1.' + sid + '.' + i + '.' + n + '.' + p.slice(i * FRAME_CH, (i + 1) * FRAME_CH));
+}
+function makeAssembler() {
+  const sess = new Map(), done = new Set();
+  return {
+    async feed(text) {
+      const m = /^M1\.([a-z0-9]+)\.(\d+)\.(\d+)\.([A-Za-z0-9_-]*)$/.exec(text || ''); if (!m) return null;
+      const sid = m[1], idx = +m[2], total = +m[3];
+      if (done.has(sid)) return { sid, dup: true };
+      if (!total || idx >= total) return null;
+      let s = sess.get(sid);
+      if (!s) { s = { total, parts: new Map() }; sess.set(sid, s); if (sess.size > 6) sess.delete(sess.keys().next().value); }
+      if (s.total !== total) return null;
+      s.parts.set(idx, m[4]);
+      if (s.parts.size < s.total) return { sid, have: s.parts.size, total: s.total };
+      let p = ''; for (let k = 0; k < s.total; k++) p += s.parts.get(k);
+      done.add(sid); sess.delete(sid);
+      try { return { sid, have: total, total, msg: await unpack(p) }; } catch { return { sid, bad: true }; }
+    }
+  };
+}
+
+/* --- the swap protocol: phone sends its news + an inventory, hub replies with what the phone is missing --- */
+async function buildRequest() {
+  const reqAt = Date.now(), mid = Math.random().toString(36).slice(2, 8);
+  const push = Object.values(records).filter(r => isScoutRec(r) && r.updatedAt > hubState.lastAt).map(stripRec);
+  const inv = []; for (const r of Object.values(records)) if (XTYPES.includes(r.type)) inv.push(fnv(r.id), r.updatedAt);
+  return { reqAt, mid, push, msg: { k: 'X', mid, who: me() ? me().data.name : '?', inv, push } };
+}
+function buildReply(x, hubName) {
+  const got = mergeIncoming(x.push);
+  const have = new Map(); for (let i = 0; i + 1 < (x.inv || []).length; i += 2) have.set(x.inv[i], x.inv[i + 1]);
+  const recs = [];
+  for (const r of Object.values(records)) if (XTYPES.includes(r.type)) { const t = have.get(fnv(r.id)); if (t === undefined || r.updatedAt > t) recs.push(stripRec(r)); }
+  return { got, msg: { k: 'R', re: x.mid, who: hubName, recs } };
+}
+
+/* --- QR tools load on demand (and are kept for offline use by the service worker) --- */
+const LIB_URLS = {
+  qr: ['qrcode.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js', 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js'],
+  jsqr: ['jsQR.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js', 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js']
+};
+const LIB_OK = { qr: () => typeof qrcode === 'function', jsqr: () => typeof jsQR === 'function' };
+const libPromise = {};
+function loadLib(name) {
+  if (LIB_OK[name]()) return Promise.resolve(true);
+  if (libPromise[name]) return libPromise[name];
+  return libPromise[name] = (async () => {
+    for (const u of LIB_URLS[name]) {
+      const ok = await new Promise(res => { const el = document.createElement('script'); el.src = u; el.onload = () => res(true); el.onerror = () => { el.remove(); res(false); }; document.head.append(el); });
+      if (ok && LIB_OK[name]()) return true;
+    }
+    libPromise[name] = null; return false;
+  })();
+}
+function drawQR(canvas, text) {
+  const q = qrcode(0, 'L'); q.addData(text); q.make();
+  const n = q.getModuleCount(), px = 8, quiet = 4, size = (n + quiet * 2) * px;
+  canvas.width = canvas.height = size;
+  const c = canvas.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, size, size); c.fillStyle = '#000';
+  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) c.fillRect((k + quiet) * px, (r + quiet) * px, px, px);
+}
+function qrCycler(canvas, label, box) {
+  let frames = [], idx = 0, timer;
+  const show = () => {
+    if (!frames.length) return;
+    try { drawQR(canvas, frames[idx]); } catch (e) { if (label) label.textContent = 'QR error: ' + e.message; return; }
+    if (label) label.textContent = frames.length > 1 ? 'Code ' + (idx + 1) + ' of ' + frames.length : '';
+  };
+  return {
+    set(fr) { frames = fr; idx = 0; clearInterval(timer); if (box) box.classList.remove('idle'); show(); if (fr.length > 1) timer = setInterval(() => { idx = (idx + 1) % frames.length; show(); }, 420); },
+    idle() { frames = []; clearInterval(timer); if (box) box.classList.add('idle'); if (label) label.textContent = ''; },
+    stop() { clearInterval(timer); }
+  };
+}
+async function startScanner(video, onText, facing) {
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 1280 } }, audio: false });
+  video.srcObject = stream; video.setAttribute('playsinline', ''); video.muted = true; await video.play();
+  const det = 'BarcodeDetector' in window ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
+  const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
+  let stopped = false, busy = false;
+  const tick = async () => {
+    if (stopped) return;
+    if (!busy && video.readyState >= 2 && video.videoWidth) {
+      busy = true;
+      try {
+        let text = null;
+        if (det) { const r = await det.detect(video); if (r[0]) text = r[0].rawValue; }
+        else if (typeof jsQR === 'function') {
+          const w = Math.min(video.videoWidth, 720), hh = Math.round(video.videoHeight * w / video.videoWidth);
+          cv.width = w; cv.height = hh; cx.drawImage(video, 0, 0, w, hh);
+          const c = jsQR(cx.getImageData(0, 0, w, hh).data, w, hh, { inversionAttempts: 'dontInvert' }); if (c) text = c.data;
+        }
+        if (text) onText(text);
+      } catch {}
+      busy = false;
+    }
+    setTimeout(tick, 70);
+  };
+  tick();
+  return { stop() { stopped = true; stream.getTracks().forEach(t => t.stop()); video.srcObject = null; } };
+}
+const camHelp = e => 'Camera unavailable (' + ((e && e.message) || e) + '). Allow camera access for this app in Settings.';
+
+/* --- phone side: show my data, scan the hub's reply --- */
+function exchangeView() {
+  const box = h('div', { class: 'qrbox idle' }, h('canvas', {}), h('img', { src: 'logo-white.png', alt: '' }));
+  const canvas = $('canvas', box), label = h('div', { class: 'meta qlabel' }), video = h('video', { class: 'cam', playsinline: '', muted: '', style: 'height:150px' });
+  const status = h('div', { class: 'xstat' }, 'Getting ready…'), result = h('div');
+  const cyc = qrCycler(canvas, label, box), asm = makeAssembler();
+  let scanner = null, facing = 'user', stopped = false, finished = false, req = null;
+  const flip = h('button', { class: 'btn s flip', onclick: async () => { facing = facing === 'user' ? 'environment' : 'user'; if (scanner) scanner.stop(); startCam(); } }, ico('refresh', 16), 'Flip');
+  viewCleanup = () => { stopped = true; cyc.stop(); if (scanner) scanner.stop(); };
+  async function startCam() { try { scanner = await startScanner(video, onText, facing); } catch (e) { status.textContent = camHelp(e); status.classList.add('err'); } }
+  async function onText(text) {
+    if (finished || stopped) return;
+    const r = await asm.feed(text); if (!r || r.dup || r.bad) return;
+    if (!r.msg) { status.textContent = 'Receiving from the hub… ' + r.have + ' of ' + r.total; return; }
+    const m = r.msg; if (m.k !== 'R' || m.re !== req.mid) return;
+    finished = true;
+    const got = mergeIncoming(m.recs); hubState.lastAt = req.reqAt; saveHub();
+    if (scanner) scanner.stop();
+    cyc.set(await makeFrames({ k: 'A', re: req.mid, got, sent: req.push.length }));
+    status.textContent = '✓ Done. Sent ' + req.push.length + ', received ' + got + ' new.';
+    status.classList.remove('err');
+    result.replaceChildren(h('p', { class: 'meta', style: 'text-align:center' }, 'Keep this code facing the hub for a second so it knows you are done.'),
+      h('button', { class: 'btn full', onclick: () => go('board') }, ico('check', 18), 'Done'));
+    if (navigator.onLine) sync();
+  }
+  (async () => {
+    if (!(await loadLib('qr'))) { status.textContent = "Couldn't load the QR tools. Connect to the internet once so they can be saved, then try again."; status.classList.add('err'); return; }
+    if (!('BarcodeDetector' in window)) await loadLib('jsqr');
+    if (stopped) return;
+    req = await buildRequest(); if (stopped) return;
+    cyc.set(await makeFrames(req.msg));
+    status.textContent = 'Show this code to the hub. ' + req.push.length + ' new entries to share.';
+    startCam();
+  })();
+  return h('div', {}, h('button', { class: 'btn o s', onclick: () => go('more') }, ico('back', 16), 'Back'),
+    h('h1', {}, 'Swap with hub'),
+    h('p', { class: 'meta' }, 'Face your screen toward the hub screen, about a hand apart, so each front camera can see the other code. Turn your brightness all the way up. Hold steady until it says Done.'),
+    box, label, status, h('div', { class: 'camwrap' }, video, flip), result);
+}
+
+/* --- hub side: scan phones, show the reply --- */
+function hubView() {
+  const hubOnly = me().data.role === 'hub';
+  const box = h('div', { class: 'qrbox idle' }, h('canvas', {}), h('img', { src: 'logo-white.png', alt: '' }));
+  const canvas = $('canvas', box), label = h('div', { class: 'meta qlabel' }), video = h('video', { class: 'cam', playsinline: '', muted: '' });
+  const status = h('div', { class: 'xstat' }, 'Getting ready…'), statsEl = h('div', { class: 'stats3' }), logEl = h('div');
+  const cyc = qrCycler(canvas, label, box), asm = makeAssembler(), handled = new Set();
+  let scanner = null, facing = LS.get('scout.hubcam', 'user'), stopped = false, current = null, resetTimer;
+  const drawStats = () => {
+    const held = Object.values(records).filter(r => isScoutRec(r) && !r.deleted).length;
+    statsEl.replaceChildren(...[[held, 'entries held'], [hubState.log.length, 'swaps'], [pendingCount(), 'waiting to upload']].map(([n, l]) => h('div', { class: 'stat' }, h('b', {}, String(n)), l)));
+    logEl.replaceChildren(...hubState.log.slice(0, 6).map(e => h('div', { class: 'card' }, h('div', { class: 'row' }, h('b', {}, e.who), h('span', { class: 'sp' }), h('span', { class: 'meta', style: 'margin:0' }, fmtTime(e.at))), h('div', { class: 'meta' }, 'Received ' + e.got + ' · sent ' + e.out))));
+  };
+  const standby = msg => { current = null; cyc.idle(); status.textContent = msg || 'Ready. Hold a phone’s code up to the camera.'; drawStats(); };
+  const flip = h('button', { class: 'btn s flip', onclick: () => { facing = facing === 'user' ? 'environment' : 'user'; LS.set('scout.hubcam', facing); if (scanner) scanner.stop(); startCam(); } }, ico('refresh', 16), 'Flip');
+  viewCleanup = () => { stopped = true; clearTimeout(resetTimer); cyc.stop(); if (scanner) scanner.stop(); };
+  async function startCam() { try { scanner = await startScanner(video, onText, facing); } catch (e) { status.textContent = camHelp(e); status.classList.add('err'); } }
+  async function onText(text) {
+    if (stopped) return;
+    const r = await asm.feed(text); if (!r || r.dup || r.bad) return;
+    if (!r.msg) { if (!current) status.textContent = 'Receiving… ' + r.have + ' of ' + r.total; return; }
+    const m = r.msg;
+    if (m.k === 'A') {
+      if (current && m.re === current.mid) { hubState.log.unshift({ who: current.who, at: Date.now(), got: current.got, out: current.out }); hubState.log = hubState.log.slice(0, 50); saveHub(); clearTimeout(resetTimer); standby('✓ Swapped with ' + current.who + '. Next phone!'); if (navigator.onLine) sync(); }
+      return;
+    }
+    if (m.k !== 'X' || handled.has(m.mid)) return;
+    handled.add(m.mid);
+    const { got, msg } = buildReply(m, me().data.name);
+    current = { mid: m.mid, who: m.who || '?', got, out: msg.recs.length };
+    cyc.set(await makeFrames(msg));
+    status.textContent = 'Got ' + got + ' from ' + current.who + '. Now point their phone at this screen.';
+    clearTimeout(resetTimer); resetTimer = setTimeout(() => standby(), 45000);
+  }
+  (async () => {
+    if (!(await loadLib('qr'))) { status.textContent = "Couldn't load the QR tools. Connect to the internet once so they can be saved, then reopen this screen."; status.classList.add('err'); return; }
+    if (!('BarcodeDetector' in window)) await loadLib('jsqr');
+    if (stopped) return;
+    standby(); startCam();
+  })();
+  drawStats();
+  return h('div', {},
+    h('div', { class: 'row' }, h('h1', { style: 'margin:0' }, 'Hub station'), h('span', { class: 'sp' }),
+      hubOnly ? h('button', { class: 'btn o s', onclick: logout }, ico('logout', 16), 'Log out') : h('button', { class: 'btn o s', onclick: () => go('more') }, ico('back', 16), 'Exit hub')),
+    status, h('div', { class: 'hubgrid' }, h('div', {}, box, label), h('div', { class: 'camwrap' }, video, flip)),
+    statsEl, logEl);
+}
+
+/* --- backup files (AirDrop / Messages / Files) --- */
+async function exportBackup() {
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+  const data = { app: 'mphs-scout', v: 1, at: Date.now(), by: me().data.name, records: Object.values(records).map(stripRec) };
+  const file = new File([JSON.stringify(data)], 'mphs-backup-' + stamp + '.json', { type: 'application/json' });
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'MPHS Scout backup' }); return; } }
+  catch (e) { if (e && e.name === 'AbortError') return; }
+  const a = h('a', { href: URL.createObjectURL(file), download: file.name }); document.body.append(a); a.click(); a.remove();
+}
+async function importBackup(file) {
+  try {
+    const j = JSON.parse(await file.text());
+    if (j.app !== 'mphs-scout' || !Array.isArray(j.records)) throw new Error('not an MPHS Scout backup');
+    const n = mergeIncoming(j.records, [...XTYPES, 'info']);
+    toast(n ? 'Imported ' + n + ' new or updated entries' : 'Nothing new in that file');
+    if (navigator.onLine) sync(); render();
+  } catch (e) { toast('Could not read that file: ' + (e.message || e)); }
+}
+async function qrSelfTest(btn) {
+  btn.disabled = true;
+  try {
+    if (!(await loadLib('qr'))) throw new Error('QR maker did not load. Connect to the internet once.');
+    if (!(await loadLib('jsqr'))) throw new Error('QR reader did not load. Connect to the internet once.');
+    const frames = await makeFrames({ k: 'T', x: 'self-test '.repeat(60) });
+    const c = document.createElement('canvas'); drawQR(c, frames[0]);
+    const id = c.getContext('2d').getImageData(0, 0, c.width, c.height), out = jsQR(id.data, id.width, id.height);
+    if (!out || out.data !== frames[0]) throw new Error('QR read-back failed');
+    toast('QR tools work ✓');
+  } catch (e) { toast(String(e.message || e)); }
+  btn.disabled = false;
+}
+
 /* ================= shell ================= */
 function pillText() { return syncing ? 'Syncing…' : lastStatus.text; }
 function topbar() {
@@ -769,16 +1061,19 @@ function topbar() {
     h('button', { class: 'pill' + (lastStatus.bad ? ' bad' : '') + (syncing ? ' spin' : ''), id: 'status', 'aria-label': 'Sync status', onclick: openSheet }, ico('refresh', 14), h('span', { class: 't' }, pillText())));
 }
 function navbar() {
-  const active = { board: 'board', team: 'board', field: 'field', pit: 'pit', saved: 'saved', edit: 'saved', more: 'more', admin: 'more' }[view.name];
+  const active = { board: 'board', team: 'board', field: 'field', pit: 'pit', saved: 'saved', edit: 'saved', more: 'more', admin: 'more', exchange: 'more' }[view.name];
   return h('nav', { class: 'bar' }, [['board', 'board', 'Board'], ['field', 'flag', 'Match'], ['pit', 'wrench', 'Pit'], ['saved', 'save', 'Saved'], ['more', 'more', 'More']]
     .map(([k, i, l]) => h('button', { class: active === k ? 'on' : '', onclick: () => go(k) }, ico(i, 24), l)));
 }
 function go(name, arg) { view = { name, arg: arg ?? null }; render(); scrollTo(0, 0); }
+let viewCleanup = null;
 function render() {
   const app = $('#app');
+  if (viewCleanup) { try { viewCleanup(); } catch {} viewCleanup = null; }
   if (!me() || !auth.token) { app.replaceChildren(loginView()); drawSheet(); return; }
+  if (me().data.role === 'hub' && view.name !== 'hub') view = { name: 'hub', arg: null };
   const y = scrollY;
-  app.replaceChildren(topbar(), h('main', {}, (views[view.name] || views.board)(view.arg)), navbar());
+  app.replaceChildren(topbar(), h('main', { class: view.name === 'hub' ? 'wide' : '' }, (views[view.name] || views.board)(view.arg)), view.name === 'hub' ? null : navbar());
   scrollTo(0, y); drawSheet();
 }
 function setStatus(text, bad) {
@@ -811,7 +1106,9 @@ function drawSheet() {
       lastError && !syncing ? h('div', { class: 'notice' }, lastError) : null,
       pend.length ? h('div', {}, h('div', { class: 'sub-h' }, pend.length + ' waiting to upload'), h('div', { class: 'plist' }, pend.map(r => h('div', {}, h('span', {}, describe(r)), h('span', { class: 'meta', style: 'margin:0' }, fmtTime(r.updatedAt))))))
         : h('div', { class: 'empty' }, ico('check', 20), 'Everything is uploaded'),
+      unsharedCount() ? h('div', { class: 'meta' }, unsharedCount() + ' entries not yet swapped with a hub') : null,
       h('button', { class: 'btn full', disabled: syncing, onclick: async () => { const ok = await sync(true); toast(ok ? 'Synced ✓' : (lastError || 'Could not sync')); } }, ico('refresh', 18), syncing ? 'Syncing…' : 'Sync now'),
+      me().data.role !== 'hub' ? h('button', { class: 'btn o full', onclick: () => { closeSheet(); go('exchange'); } }, 'No signal? Swap with the hub') : null,
       h('button', { class: 'btn o full', onclick: closeSheet }, 'Close')));
 }
 
@@ -848,6 +1145,7 @@ async function sync(manual) {
     syncing = false;
     setStatus('Synced ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
     afterSync(usersBefore);
+    if (!libsWarmed) { libsWarmed = true; setTimeout(() => { loadLib('qr'); loadLib('jsqr'); }, 3000); }
     if (pendingCount()) setTimeout(() => sync(), 400);   // something was saved while this sync ran
     return true;
   } catch (e) {
