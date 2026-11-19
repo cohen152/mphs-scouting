@@ -836,7 +836,7 @@ async function refreshRoster(org) {
     roster[org]=j.users; LS.set('scout.roster',roster);
     if(loginTeam===org) loginMsg='';
   } catch(e) { if(loginTeam===org) loginMsg=(roster[org]||[]).length?'Offline — showing saved users.':e.message; }
-  finally {rosterLoading=false;if(!session)render();}
+  finally {rosterLoading=false;if(!session && !loginUser && loginTeam===org)render();}
 }
 function loginView() {
   const msg = h('p', {class:'err',role:'status'}, loginMsg);
@@ -853,7 +853,7 @@ function loginView() {
       !(roster[loginTeam]||[]).length ? h('p',{},rosterLoading?'Loading users…':'No users saved for this team yet.') : null,
       h('button',{class:'login-back',disabled:rosterLoading,onclick:()=>refreshRoster(loginTeam)},rosterLoading?'Refreshing…':'Refresh users'),msg];
   } else {
-    const pin = h('input',{type:'password',inputmode:'numeric',maxlength:4,pattern:'[0-9]{4}',autocomplete:'current-password',class:'pin-input','aria-label':'Four-digit PIN',placeholder:'••••'});
+    const pin = h('input',{type:'password',inputmode:'numeric',maxlength:4,pattern:'[0-9]{4}',autocomplete:'current-password',class:'pin-input','aria-label':'Four-digit PIN',placeholder:'Enter PIN'});
     const btn = h('button',{class:'btn full',onclick:()=>{if (!/^\d{4}$/.test(pin.value)) {msg.textContent='Enter four digits';return;} signIn(loginUser.name,pin.value,msg,btn);}},'Sign in');
     pin.addEventListener('input',()=>{pin.value=pin.value.replace(/\D/g,'').slice(0,4);});
     pin.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click();});
