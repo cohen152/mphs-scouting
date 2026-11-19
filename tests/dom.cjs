@@ -1,0 +1,28 @@
+const fs=require('fs'),assert=require('assert'),crypto=require('crypto');
+const {JSDOM}=require('jsdom');const {makeBackend,seed}=require('./backend.cjs');
+(async()=>{
+ const backend=makeBackend();seed(backend);let online=true;
+ const html=fs.readFileSync(__dirname+'/../index.html','utf8');
+ const dom=new JSDOM(html,{url:'https://scout.test',runScripts:'outside-only'}),w=dom.window;
+ w.scrollTo=()=>{};w.confirm=()=>true;w.setInterval=()=>0;w.setTimeout=()=>0;
+ Object.defineProperty(w.crypto,'subtle',{value:crypto.webcrypto.subtle});w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;
+ w.fetch=async(url,opt)=>{if(!online)throw new Error('offline');return {text:async()=>JSON.stringify(backend.call(JSON.parse(opt.body)))}};
+ w.eval(html.split('<script>')[1].split('</script>')[0] + '\nwindow.inspectApp = code => eval(code);');
+ const flush=async()=>{for(let i=0;i<15;i++)await new Promise(r=>setTimeout(r,10));};
+ const ev=code=>w.inspectApp(code);const button=name=>[...w.document.querySelectorAll('button')].find(x=>x.textContent===name);
+ async function click(name){assert(button(name),'Missing button '+name);button(name).click();await flush();}
+ const input=(placeholder,value)=>{let el=w.document.querySelector('input[placeholder="'+placeholder+'"]');assert(el,placeholder);el.value=value;};
+ await click('#17190 P.P.R.');assert(button('Cohen'));assert(!button('Bee'));await click('Cohen');for(let i=0;i<4;i++)await click('1');assert.equal(w.document.querySelector('[aria-label="Four-digit PIN"]').value,'1111');await click('Sign in');
+ assert(ev('isAdmin()'));assert(ev("activeOf('field').some(r=>r.id==='legacy')"));
+ await click('#17300 Hiveminds');assert.equal(ev("activeOf('field').length"),0);ev("upsertRec('field',{team:'456',match:'2'})");await flush();assert.equal(ev("activeOf('field').length"),1);
+ await click('#17190 P.P.R.');assert.equal(ev("activeOf('field').length"),1);assert.equal(ev("activeOf('field')[0].id"),'legacy');
+ assert.equal(ev("mergeIncoming([{id:'foreign',org:'17300',type:'field',data:{},updatedAt:Date.now()}])"),0);
+ assert.equal(ev("mergeIncoming([{id:session,org:'17190',type:'user',data:{name:'Fake',role:'admin'},updatedAt:Date.now()}])"),0);
+ assert(ev("(()=>{try{buildReply({org:'17300',push:[]},'Hub');return false}catch{return true}})()"));
+ await click('More');input('Current PIN','1111');input('New PIN (4 digits)','0426');input('Repeat new PIN','0426');await click('Update PIN');assert.equal(ev('auth.isDefault'),false);
+ await click('Log out');await click('#17300 Hiveminds');assert(!button('Cohen'));await click('Bee');input('••••','1111');await click('Sign in');assert(!w.document.querySelector('.team-switch'));assert.equal(ev('activeOrg'),'17300');assert.equal(ev("activeOf('field').length"),1);
+ ev('logout()');online=false;await click('#17300 Hiveminds');await click('Bee');input('••••','1111');await click('Sign in');assert.equal(ev('session'),'bee');assert(!ev('isAdmin()'));
+ // Self-service PIN checks include leading zeros, not alphabetic/long input.
+ assert.equal(ev("Object.values(records).filter(r=>r.type==='field'&&r.org==='17190').length"),1);
+ console.log('DOM checks passed: login/keypad, home-team roster, admin switching, isolated data, PIN change, offline login, QR scope and role rejection.');dom.window.close();
+})().catch(e=>{console.error(e);process.exit(1)});

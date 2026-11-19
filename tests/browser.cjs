@@ -1,0 +1,38 @@
+const {chromium}=require('playwright'),http=require('http'),fs=require('fs'),path=require('path'),assert=require('assert');
+const {makeBackend,seed}=require('./backend.cjs');
+(async()=>{
+ const root=path.resolve(__dirname,'..'),b=makeBackend();seed(b);
+ const server=http.createServer((req,res)=>{let f=path.join(root,req.url==='/'?'index.html':req.url.split('?')[0]);try{res.setHeader('Content-Type',f.endsWith('.html')?'text/html':f.endsWith('.js')?'application/javascript':f.endsWith('.jpeg')?'image/jpeg':'image/png');res.end(fs.readFileSync(f));}catch{res.statusCode=404;res.end();}});await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']}),ctx=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'}),page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await ctx.route('**/*',async route=>{const u=route.request().url();if(u.includes('script.google.com')){let result=b.call(route.request().postDataJSON());return route.fulfill({json:result});}if(!u.includes('127.0.0.1'))return route.abort();return route.continue();});
+ await page.goto('http://127.0.0.1:'+server.address().port);
+ await page.getByRole('button',{name:'#17190 P.P.R.',exact:true}).waitFor();
+ fs.mkdirSync('/tmp/mphs-review',{recursive:true});await page.screenshot({path:'/tmp/mphs-review/team-selection.png'});
+ await page.getByRole('button',{name:'#17190 P.P.R.',exact:true}).click();await page.getByRole('button',{name:'Cohen',exact:true}).click();
+ for(let i=0;i<4;i++)await page.getByRole('button',{name:'1',exact:true}).click();
+ assert.equal(await page.getByLabel('Four-digit PIN').inputValue(),'1111');await page.screenshot({path:'/tmp/mphs-review/pin-entry.png'});
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('group',{name:'Active team'}).waitFor();
+ await page.waitForFunction(()=>!syncing);
+ assert(await page.evaluate(()=>activeOf('field').some(r=>r.id==='legacy')));
+ await page.getByRole('button',{name:'#17300 Hiveminds',exact:true}).click();await page.waitForFunction(()=>!syncing);
+ assert.equal(await page.evaluate(()=>activeOf('field').length),0);
+ await page.evaluate(()=>upsertRec('field',{team:'456',match:'2'}));await page.waitForFunction(()=>!syncing);
+ assert.equal(await page.evaluate(()=>activeOf('field').length),1);
+ await page.screenshot({path:'/tmp/mphs-review/hiveminds-board.png'});
+ await page.getByRole('button',{name:'#17190 P.P.R.',exact:true}).click();await page.waitForFunction(()=>!syncing);
+ assert.equal(await page.evaluate(()=>activeOf('field').length),1);assert.equal(await page.evaluate(()=>activeOf('field')[0].id),'legacy');
+ assert.equal(await page.evaluate(()=>mergeIncoming([{id:'foreign',org:'17300',type:'field',data:{team:'9'},updatedAt:Date.now()}])),0);
+ assert.equal(await page.evaluate(()=>mergeIncoming([{id:session,org:'17190',type:'user',data:{name:'Bad',role:'admin'},updatedAt:Date.now()}])),0);
+ assert(await page.evaluate(()=>{try{buildReply({org:'17300',push:[]},'Hub');return false;}catch{return true;}}));
+ await page.getByRole('button',{name:'More',exact:true}).click();
+ await page.getByPlaceholder('Current PIN',{exact:true}).fill('1111');await page.getByPlaceholder('New PIN (4 digits)',{exact:true}).fill('0426');await page.getByPlaceholder('Repeat new PIN',{exact:true}).fill('0426');await page.getByRole('button',{name:'Update PIN',exact:true}).click();
+ await page.waitForFunction(()=>auth.isDefault===false);
+ await page.getByRole('button',{name:'Log out',exact:true}).click();await page.getByRole('button',{name:'#17300 Hiveminds',exact:true}).click();await page.getByRole('button',{name:'Bee',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Cohen',exact:true}).count(),0);
+ await page.getByRole('button',{name:'Bee',exact:true}).click();await page.getByLabel('Four-digit PIN').fill('1111');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('button',{name:'More',exact:true}).waitFor();assert.equal(await page.getByRole('group',{name:'Active team'}).count(),0);
+ await page.waitForFunction(()=>!syncing);assert.equal(await page.evaluate(()=>activeOrg),'17300');assert.equal(await page.evaluate(()=>activeOf('field').length),1);
+ // Cached roster and PIN sign-in still work with the backend unavailable.
+ await page.evaluate(()=>logout());await ctx.unroute('**/*');await ctx.route('**/*',r=>r.request().url().includes('127.0.0.1')?r.continue():r.abort());
+ await page.getByRole('button',{name:'#17300 Hiveminds',exact:true}).click();await page.getByRole('button',{name:'Bee',exact:true}).click();await page.getByLabel('Four-digit PIN').fill('1111');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('button',{name:'More',exact:true}).waitFor();
+ assert.deepEqual(errors,[]);console.log('Browser checks passed: team/user/PIN flow, admin switch, isolated saves, QR rejection, PIN change, offline login.');
+ await browser.close();server.close();
+})().catch(e=>{console.error(e);process.exit(1)});
