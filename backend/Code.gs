@@ -75,7 +75,8 @@ function sync_(body, now) {
     if (old && old.updatedAt > r.updatedAt) return; // do not overwrite a newer copy
     const clean = {id:r.id,type:r.type,org:org,data:r.data,updatedAt:r.updatedAt,deleted:!!r.deleted};
     existing[r.id] = clean;
-    (accepted[r.type] ||= []).push(clean);
+    if (!accepted[r.type]) accepted[r.type] = [];
+    accepted[r.type].push(clean);
   });
   Object.keys(accepted).forEach(t => upsertMany_(t,accepted[t],now));
   let records = [];
