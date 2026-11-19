@@ -156,6 +156,27 @@ a.lnk{color:var(--pl);text-decoration:underline;word-break:break-all}
 main.wide{max-width:1100px}
 @media (orientation:landscape) and (min-width:760px){.hubgrid{grid-template-columns:1fr 1fr;align-items:start}.hubgrid .qrbox{width:min(100%,520px)}.hubgrid .cam{height:min(60vh,420px)}}
 details summary{cursor:pointer;color:var(--pl);padding:8px 0}
+
+body.login-mode{background:linear-gradient(#0002,#0007),url('login-background.jpeg') center/cover fixed;min-height:100dvh;padding-bottom:24px}
+.login h1,.login .sub{text-shadow:0 2px 8px #0009;color:white}
+.login-panel{background:#fffffff2;color:#29212d;padding:18px;border-radius:16px;text-align:center;box-shadow:0 8px 30px #0003}
+.login-panel p{color:#44384b}.login-panel .err{color:#a71934}.login-panel .btn{background:#6b2ba8;color:white}
+.team-choice{display:block;width:100%;min-height:48px;padding:12px 13px;margin:10px 0;border:1px solid #d6cbdc;border-radius:12px;font:inherit;font-weight:600;background:white;color:#4d285b;cursor:pointer;text-align:left}
+.team-choice.t17190{background:#6b2ba8;color:white}.team-choice.t17300{background:#ffe0f7;color:#654800;border:2px solid #fec107}
+.login-back{font:inherit;background:none;border:0;color:#612c85;padding:8px;cursor:pointer}
+.user-list{max-height:45vh;overflow:auto}
+.login-panel .pin-input{background:#f5f1f7;color:#29212d;text-align:center;letter-spacing:.5em;font-size:24px;border:1px solid #b5a2bf;margin:10px 0}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.pin-pad button{min-height:52px;font:600 21px var(--body);border:1px solid #ddd0e4;border-radius:12px;background:#f6f2f8;color:#412a50;cursor:pointer}
+.pin-pad button:active{background:#e5ccef}
+.team-switch{display:flex;max-width:640px;margin:12px auto 0;padding:4px;background:#24202a;border-radius:99px;border:1px solid #ffffff30}
+.team-switch button{flex:1;border:0;border-radius:99px;padding:10px 6px;background:transparent;color:white;font:600 13px var(--body);cursor:pointer;transition:background .2s}
+.team-switch .selected.t17190{background:#6b2ba8}.team-switch .selected.t17300{background:#ffe0f7;color:#654800;box-shadow:inset 0 0 0 2px #fec107}
+.team-label{text-align:center;font-size:13px;padding:8px;color:var(--pl)}
+body.hiveminds{--p:#7b356a;--pl:#ffe0f7}
+body.hiveminds header.top{background:#ffe0f7;color:#55354f;border-bottom:3px solid #fec107}
+body.hiveminds header .logo-s{filter:brightness(0) saturate(100%);opacity:.75}
+body.hiveminds header .pill{background:#7b356a;color:white}
 </style>
 </head>
 <body>
@@ -165,7 +186,7 @@ details summary{cursor:pointer;color:var(--pl);padding:8px 0}
 'use strict';
 /* Backend address and team key. Phones use these automatically. */
 const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxKDZIyCqEsH91fzAa46_uAhpvZQP4U37LyKahaMYM6TO1h7tNH41YvemA__Z-bHTzO/exec';
-const DEFAULT_KEY = '17190';
+const DEFAULT_KEY = ''; // Authentication uses per-user PINs and server-issued sessions.
 
 /* ================= helpers ================= */
 const $ = (s, el = document) => el.querySelector(s);
@@ -219,29 +240,49 @@ async function sha(s) {
 }
 
 /* ================= state ================= */
+const TEAMS = {'17190': {name:'P.P.R.', color:'#6b2ba8'}, '17300': {name:'Hiveminds',color:'#ffe0f7'}};
+let activeOrg = LS.get('scout.activeOrg','17190');
+if (!TEAMS[activeOrg]) activeOrg = '17190';
 let records = LS.get('scout.records', {});
+for (const r of Object.values(records)) r.org ||= '17190';
+const orgOf = r => String(r.org || '17190');
+const scopedRecords = () => Object.values(records).filter(r => orgOf(r) === activeOrg);
+let roster = LS.get('scout.roster', {}), loginTeam = null, loginUser = null, rosterLoading = false;
+let scopeVersion = 0;
+function switchTeam(org) {
+  if (!TEAMS[org] || org === activeOrg || syncing) return;
+  if (session && me() && !isAdmin() && org !== orgOf(me())) return;
+  persist(); activeOrg = org; scopeVersion++;
+  since = LS.get('scout.since.' + org,0);
+  hubState = LS.get('scout.hub.' + org,{lastAt:0,log:[]});
+  view = {name:'board',arg:null}; sheetOpen = false;
+  persist(); render(); sync();
+}
+function teamSwitch() {
+ return h('div',{class:'team-switch',role:'group','aria-label':'Active team'},Object.entries(TEAMS).map(([id,t]) => h('button',{class:activeOrg === id ? 'selected t'+id : '', 'aria-pressed':activeOrg === id,disabled:syncing,onclick:()=>switchTeam(id)},'#'+id+' '+t.name)));
+}
 const saved = LS.get('scout.settings', {});
 let settings = { url: saved.url || DEFAULT_URL, key: saved.key || DEFAULT_KEY };
-let since = LS.get('scout.since', 0);
-let session = LS.get('scout.session', null);
-let auth = LS.get('scout.auth', {});
+let since = LS.get('scout.since.' + activeOrg, 0);
+let session = LS.get('scout.session2', null);
+let auth = LS.get('scout.auth2', {});
 let view = { name: 'board', arg: null };
 let lastStatus = { text: 'Not synced yet', bad: false };
 let showSetup = false, sheetOpen = false, syncing = false, lastError = '', libsWarmed = false;
 function persist() {
-  LS.set('scout.records', records); LS.set('scout.since', since); LS.set('scout.session', session);
-  LS.set('scout.auth', auth); LS.set('scout.settings', settings);
+  LS.set('scout.records', records); LS.set('scout.since.' + activeOrg, since); LS.set('scout.session2', session); LS.set('scout.activeOrg',activeOrg);
+  LS.set('scout.auth2', auth); LS.set('scout.settings', settings);
 }
-const activeOf = type => Object.values(records).filter(r => r.type === type && !r.deleted);
+const activeOf = type => scopedRecords().filter(r => r.type === type && !r.deleted);
 const users = () => activeOf('user');
 const me = () => { const r = session && records[session]; return r && r.type === 'user' && !r.deleted ? r : null; };
 const isAdmin = () => !!me() && me().data.role === 'admin';
 const userName = (id, fallback) => (records[id] && !records[id].deleted ? records[id].data.name : fallback) || fallback || '?';
-const pendingList = () => Object.values(records).filter(r => r.dirty);
+const pendingList = () => scopedRecords().filter(r => r.dirty && !r.rejected);
 const pendingCount = () => pendingList().length;
 
 function upsertRec(type, data, id) {
-  const r = { id: id || uid(), type, data, updatedAt: Date.now(), deleted: false, dirty: true };
+  const r = { id: id || uid(), type, org: activeOrg, data, updatedAt: Date.now(), deleted: false, dirty: true };
   records[r.id] = r; persist(); sync();
   if ((type === 'field' || type === 'pit') && lastStatus.bad) {
     const n = unsharedCount();
@@ -427,7 +468,7 @@ function fieldFormView(rec, pre) {
 function teamIndex() {
   const T = {};
   const get = n => (T[n] ??= { team: n, name: '', targetId: null, assignedTo: null, isTarget: false, pit: [], field: [] });
-  for (const r of Object.values(records)) {
+  for (const r of scopedRecords()) {
     if (r.deleted) continue;
     if (r.type === 'target') {
       const t = get(String(r.data.team));
@@ -438,7 +479,7 @@ function teamIndex() {
       if (r.type === 'pit' && r.data.teamName) t.name = t.name || r.data.teamName;
     }
   }
-  for (const r of Object.values(records)) {
+  for (const r of scopedRecords()) {
     if (r.deleted || r.type !== 'info') continue;
     const t = T[String(r.data.team)];
     if (t) { t.info = infoOf(r); if (!t.name && t.info && t.info.found) t.name = t.info.name || ''; }
@@ -452,7 +493,7 @@ function infoOf(r) {
   try { d.events = d.events ? JSON.parse(d.events) : []; } catch { d.events = []; }
   return d;
 }
-const infoFor = team => infoOf(records['info_' + team] && !records['info_' + team].deleted ? records['info_' + team] : null);
+const infoFor = team => infoOf(activeOf('info').filter(r => String(r.data.team) === String(team)).sort((a,b)=>b.updatedAt-a.updatedAt)[0]);
 const scouters = recs => [...new Set(recs.map(r => userName(r.data.scoutById, r.data.scout)))];
 const scouted = t => t.pit.length > 0 || t.field.length > 0;
 
@@ -581,7 +622,7 @@ views.saved = () => {
     chips.replaceChildren(
       ...[['Mine', true], ['Everyone', false]].map(([l, v]) => h('button', { class: savedF.mine === v ? 'on' : '', onclick: () => { savedF.mine = v; draw(); } }, l)),
       ...[['all', 'All'], ['field', 'Match'], ['pit', 'Pit']].map(([k, l]) => h('button', { class: savedF.type === k ? 'on' : '', onclick: () => { savedF.type = k; draw(); } }, l)));
-    const list = Object.values(records).filter(r => !r.deleted && (r.type === 'field' || r.type === 'pit') && (savedF.type === 'all' || r.type === savedF.type) && (!savedF.mine || r.data.scoutById === session))
+    const list = scopedRecords().filter(r => !r.deleted && (r.type === 'field' || r.type === 'pit') && (savedF.type === 'all' || r.type === savedF.type) && (!savedF.mine || r.data.scoutById === session))
       .sort((a, b) => b.updatedAt - a.updatedAt);
     listEl.replaceChildren(...(list.length ? list.map(r => h('div', { class: 'card tap', onclick: () => go('edit', r.id) },
       h('div', { class: 'row' }, h('span', { class: 'badge warn' }, r.type === 'field' ? 'Match' : 'Pit'), h('b', {}, 'Team ' + r.data.team + (r.type === 'field' ? ' · M' + r.data.match : '')), h('span', { class: 'sp' }),
@@ -593,16 +634,16 @@ views.saved = () => {
 };
 
 views.more = () => {
-  const oldPw = h('input', { type: 'password', placeholder: 'Current password', autocomplete: 'current-password' });
-  const newPw = h('input', { type: 'password', placeholder: 'New password (4+ characters)', autocomplete: 'new-password' });
-  const conf = h('input', { type: 'password', placeholder: 'Repeat new password', autocomplete: 'new-password' });
-  const pwBtn = h('button', { class: 'btn full', onclick: () => changePassword(oldPw.value, newPw.value, conf.value, pwBtn) }, ico('key', 18), 'Update password');
+  const oldPw = h('input', { type: 'password', inputmode:'numeric', maxlength:4, pattern:'[0-9]{4}', placeholder: 'Current PIN', autocomplete: 'current-password' });
+  const newPw = h('input', { type: 'password', inputmode:'numeric', maxlength:4, pattern:'[0-9]{4}', placeholder: 'New PIN (4 digits)', autocomplete: 'new-password' });
+  const conf = h('input', { type: 'password', inputmode:'numeric', maxlength:4, pattern:'[0-9]{4}', placeholder: 'Repeat new PIN', autocomplete: 'new-password' });
+  const pwBtn = h('button', { class: 'btn full', onclick: () => changePassword(oldPw.value, newPw.value, conf.value, pwBtn) }, ico('key', 18), 'Update PIN');
   return h('div', {},
     h('h1', {}, 'More'),
     h('div', { class: 'card' }, h('div', { class: 'row' }, h('b', {}, me().data.name), h('span', { class: 'badge' }, me().data.role))),
-    auth.isDefault ? h('div', { class: 'notice' }, 'You are still using the default password (1111). Please change it below.') : null,
+    auth.isDefault ? h('div', { class: 'notice' }, 'You are still using the default PIN (1111). Please change it below.') : null,
     isAdmin() ? h('button', { class: 'btn full', onclick: () => go('admin') }, ico('shield', 18), 'Admin: users & teams') : null,
-    h('h2', {}, 'Change password'), oldPw, newPw, conf, pwBtn,
+    h('h2', {}, 'Change PIN'), oldPw, newPw, conf, pwBtn,
     h('h2', {}, 'Sync'),
     h('div', { class: 'meta' }, pendingCount() + ' change(s) waiting to upload'),
     h('button', { class: 'btn full', onclick: async () => { const ok = await sync(true); toast(ok ? 'Synced ✓' : (lastError || 'Could not sync')); go('more'); } }, ico('refresh', 18), 'Sync now'),
@@ -636,7 +677,7 @@ views.admin = () => {
   const addUser = keep(() => {
     const n = newUser.value.trim(); if (!n) return;
     if (nameTaken(n)) { toast('That username already exists'); return; }
-    upsertRec('user', { name: n, role: 'scout' }); toast('Added · password is 1111');
+    upsertRec('user', { name: n, role: 'scout' }); toast('Added · PIN is 1111');
   });
   const userCards = us.map(u => h('div', { class: 'card' },
     h('div', { class: 'row' },
@@ -650,7 +691,7 @@ views.admin = () => {
         keep(() => upsertRec('user', { ...u.data, role: e.target.value }, u.id))();
       } }, ['scout', 'hub', 'admin'].map(r => h('option', { value: r, selected: u.data.role === r }, r)))),
     h('div', { class: 'row', style: 'margin-top:8px' },
-      u.id !== session ? h('button', { class: 'btn o s', onclick: () => resetPassword(u) }, ico('key', 16), 'Reset password') : null,
+      u.id !== session ? h('button', { class: 'btn o s', onclick: () => resetPassword(u) }, ico('key', 16), 'Reset PIN') : null,
       h('span', { class: 'sp' }),
       h('button', { class: 'btn d s', onclick: () => {
         if (u.data.role === 'admin' && admins <= 1) { toast('Keep at least one admin'); return; }
@@ -680,7 +721,7 @@ views.admin = () => {
     h('button', { class: 'btn o s', onclick: () => go('more') }, ico('back', 16), 'More'),
     h('h1', {}, 'Admin'),
     h('h2', {}, 'Users (' + us.length + ')'),
-    h('div', { class: 'meta' }, 'New users sign in with password 1111 and can change it under More.'),
+    h('div', { class: 'meta' }, 'New users sign in with PIN 1111 and can change it under More.'),
     h('div', { class: 'row', style: 'margin-top:8px;flex-wrap:nowrap' }, newUser, h('button', { class: 'btn', onclick: addUser }, ico('plus', 18), 'Add')),
     userCards,
     h('h2', {}, 'Teams to scout (' + targets.length + ')'),
@@ -692,28 +733,32 @@ views.admin = () => {
 /* ================= server calls, login, passwords ================= */
 async function api(payload) {
   if (!settings.url) throw new Error('Backend URL is empty');
-  const res = await fetch(settings.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: settings.key, ...payload }) });
+  const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 20000);
+  let res; try { res = await fetch(settings.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: settings.key, org: activeOrg, ...payload }), signal:controller.signal }); } finally { clearTimeout(timer); }
   const txt = await res.text(); let j;
   try { j = JSON.parse(txt); } catch { throw new Error('Server sent a web page, not data: ' + txt.slice(0, 60).replace(/\s+/g, ' ')); }
   return j;
 }
-function logout() { session = null; auth = {}; persist(); render(); }
+function logout() { scopeVersion++; session = null; auth = {}; loginTeam = null; loginUser = null; sheetOpen = false; persist(); render(); }
 
 async function signIn(name, pw, msgEl, btn) {
   name = name.trim();
-  if (!name || !pw) { msgEl.textContent = 'Enter your username and password'; return; }
+  if (!name || !pw) { msgEl.textContent = 'Enter your name and four-digit PIN'; return; }
   btn.disabled = true; msgEl.textContent = 'Signing in…';
-  const key = name.toLowerCase(), creds = LS.get('scout.cred', {});
+  const key = activeOrg + ':' + loginUser.id, creds = LS.get('scout.pinCred', {}); const version = scopeVersion;
   try {
-    const j = await api({ action: 'login', name, password: pw });
-    if (!j.ok) { msgEl.textContent = j.error || 'Could not sign in'; btn.disabled = false; return; }
+    const j = await api({ action: 'login', loginId:loginUser.id, name, password: pw });
+    if (version !== scopeVersion) return;
+    if (!j.ok || j.version !== 2) { msgEl.textContent = j.error || 'Could not sign in'; btn.disabled = false; return; }
     records[j.user.id] = { ...j.user, dirty: false };
     session = j.user.id; auth = { token: j.token, isDefault: !!j.isDefault };
     const hs = await sha('mphs|' + key + '|' + pw);
-    if (hs) { creds[key] = { h: hs, id: session, token: j.token, d: !!j.isDefault }; LS.set('scout.cred', creds); }
+    if (version !== scopeVersion) return;
+    if (hs) { creds[key] = { h: hs, id: session, token: j.token, d: !!j.isDefault }; LS.set('scout.pinCred', creds); }
     LS.set('scout.lastUser', j.user.data.name);
     persist(); view = { name: 'board', arg: null }; render(); sync();
   } catch (e) {
+    if (version !== scopeVersion) return;
     const c = creds[key], hs = c ? await sha('mphs|' + key + '|' + pw) : '';
     if (c && hs && hs === c.h && records[c.id] && !records[c.id].deleted) {
       session = c.id; auth = { token: c.token, isDefault: c.d }; persist(); render(); sync(); toast('Signed in offline'); return;
@@ -724,37 +769,42 @@ async function signIn(name, pw, msgEl, btn) {
 }
 
 async function changePassword(oldPw, newPw, conf, btn) {
-  if (!oldPw) { toast('Enter your current password'); return; }
-  if (newPw.length < 4) { toast('New password must be at least 4 characters'); return; }
-  if (newPw !== conf) { toast('New passwords do not match'); return; }
+  const version = scopeVersion;
+  if (!oldPw) { toast('Enter your current PIN'); return; }
+  if (!/^\d{4}$/.test(newPw)) { toast('New PIN must contain exactly four digits'); return; }
+  if (newPw !== conf) { toast('New PINs do not match'); return; }
   btn.disabled = true;
   try {
     const j = await api({ action: 'setpw', userId: session, token: auth.token, oldPw, newPw });
-    if (!j.ok) { toast(j.error || 'Could not change password'); if (j.error === 'Please sign in again') logout(); btn.disabled = false; return; }
-    auth = { token: j.token, isDefault: false }; persist();
-    const key = me().data.name.trim().toLowerCase(), creds = LS.get('scout.cred', {}), hs = await sha('mphs|' + key + '|' + newPw);
-    if (hs) { creds[key] = { h: hs, id: session, token: j.token, d: false }; LS.set('scout.cred', creds); }
-    toast('Password updated'); go('more');
+    if (version !== scopeVersion) return;
+    if (!j.ok) { toast(j.error || 'Could not change PIN'); if (j.error === 'Please sign in again') logout(); btn.disabled = false; return; }
+    auth = { token: j.token, isDefault: newPw === '1111' }; persist();
+    const key = orgOf(me()) + ':' + me().id, creds = LS.get('scout.pinCred', {}), hs = await sha('mphs|' + key + '|' + newPw);
+    if (version !== scopeVersion) return;
+    if (hs) { creds[key] = { h: hs, id: session, token: j.token, d: newPw === '1111' }; LS.set('scout.pinCred', creds); }
+    toast('PIN updated'); go('more');
   } catch (e) { toast("Can't reach the server"); btn.disabled = false; }
 }
 
 async function resetPassword(u) {
-  if (!confirm('Reset ' + u.data.name + "'s password to 1111?")) return;
+  if (!confirm('Reset ' + u.data.name + "'s PIN to 1111?")) return;
   try {
     const j = await api({ action: 'resetpw', userId: session, token: auth.token, targetId: u.id });
+    if (j.ok) { const creds=LS.get('scout.pinCred',{}); delete creds[orgOf(u)+':'+u.id]; LS.set('scout.pinCred',creds); }
     toast(j.ok ? u.data.name + ' reset to 1111' : (j.error || 'Could not reset'));
   } catch (e) { toast("Can't reach the server"); }
 }
 
 /* ---------- FTCScout lookups (the backend calls FTCScout, then everyone syncs the result) ---------- */
 async function lookupTeams(teams, quiet) {
+  const lookupOrg=activeOrg;
   teams = [...new Set(teams.map(String))].filter(t => /^\d+$/.test(t));
   if (!teams.length) return { ok: 0, bad: [] };
   let ok = 0; const bad = [];
   try {
     for (let i = 0; i < teams.length; i += 8) {
       const chunk = teams.slice(i, i + 8);
-      const j = await api({ action: 'lookup', userId: session, token: auth.token, teams: chunk });
+      const j = await api({ action: 'lookup', userId: session, token: auth.token, org:lookupOrg, teams: chunk });
       if (!j.ok) { if (!quiet) toast(j.error || 'Lookup failed'); return { ok, bad: teams }; }
       for (const t of chunk) { const r = (j.results || {})[t]; if (r && r.ok) ok++; else bad.push(t + (r && r.error ? ' (' + r.error + ')' : '')); }
     }
@@ -770,17 +820,40 @@ function tapLogo() {
   logoTaps++; clearTimeout(logoTimer); logoTimer = setTimeout(() => { logoTaps = 0; }, 2500);
   if (logoTaps >= 5) { logoTaps = 0; showSetup = !showSetup; render(); toast(showSetup ? 'Setup menu unlocked' : 'Setup menu hidden'); }
 }
+async function refreshRoster(org) {
+  rosterLoading=true; render();
+  try {
+    const j=await api({action:'directory',org});
+    if (!j.ok || j.version!==2) throw new Error(j.error || 'Deploy the updated backend to load users.');
+    roster[org]=j.users; LS.set('scout.roster',roster);
+    if(loginTeam===org) loginMsg='';
+  } catch(e) { if(loginTeam===org) loginMsg=(roster[org]||[]).length?'Offline — showing saved users.':e.message; }
+  finally {rosterLoading=false;if(!session)render();}
+}
 function loginView() {
-  const nameIn = h('input', { placeholder: 'Username', autocapitalize: 'off', autocomplete: 'username', autocorrect: 'off', value: loginName, oninput: e => { loginName = e.target.value; } });
-  const pwIn = h('input', { type: 'password', placeholder: 'Password', autocomplete: 'current-password' });
-  const msg = h('p', { class: 'err' }, loginMsg);
-  const btn = h('button', { class: 'btn full', onclick: () => signIn(nameIn.value, pwIn.value, msg, btn) }, 'Sign in');
-  pwIn.addEventListener('keydown', e => { if (e.key === 'Enter') btn.click(); });
-  const out = [
-    h('img', { src: 'logo-white.png', alt: 'MPHS', class: 'big-logo', draggable: 'false', onclick: tapLogo }),
-    h('h1', {}, 'MPHS Scout'), h('p', { class: 'sub' }, 'Sign in to start scouting'),
-    nameIn, pwIn, msg, btn
-  ];
+  const msg = h('p', {class:'err',role:'status'}, loginMsg);
+  let controls;
+  if (!loginTeam) {
+    controls = Object.entries(TEAMS).map(([id,t]) => h('button',{class:'team-choice t'+id,onclick:async()=>{
+      activeOrg=id; since=LS.get('scout.since.'+id,0); hubState=LS.get('scout.hub.'+id,{lastAt:0,log:[]});
+      scopeVersion++; loginTeam=id; loginUser=null; loginMsg=''; render(); await refreshRoster(id);
+    }},'#'+id+' '+t.name));
+  } else if (!loginUser) {
+    controls = [h('button',{class:'login-back',onclick:()=>{loginTeam=null;loginMsg='';render();}},'← Teams'),
+      h('p',{},'#'+loginTeam+' '+TEAMS[loginTeam].name),
+      h('div',{class:'user-list'},(roster[loginTeam]||[]).map(u=>h('button',{class:'team-choice',onclick:()=>{loginUser=u;loginMsg='';render();}},u.name))),
+      !(roster[loginTeam]||[]).length ? h('p',{},rosterLoading?'Loading users…':'No users saved for this team yet.') : null,
+      h('button',{class:'login-back',disabled:rosterLoading,onclick:()=>refreshRoster(loginTeam)},rosterLoading?'Refreshing…':'Refresh users'),msg];
+  } else {
+    const pin = h('input',{type:'password',inputmode:'numeric',maxlength:4,pattern:'[0-9]{4}',autocomplete:'current-password',class:'pin-input','aria-label':'Four-digit PIN',placeholder:'••••'});
+    const btn = h('button',{class:'btn full',onclick:()=>{if (!/^\d{4}$/.test(pin.value)) {msg.textContent='Enter four digits';return;} signIn(loginUser.name,pin.value,msg,btn);}},'Sign in');
+    pin.addEventListener('input',()=>{pin.value=pin.value.replace(/\D/g,'').slice(0,4);});
+    pin.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click();});
+    controls = [h('button',{class:'login-back',onclick:()=>{loginUser=null;loginMsg='';render();}},'← Users'),h('p',{},loginUser.name),pin,
+      h('div',{class:'pin-pad'},['1','2','3','4','5','6','7','8','9','Clear','0','⌫'].map(k=>h('button',{type:'button','aria-label':k==='⌫'?'Backspace':k,onclick:()=>{pin.value=k==='Clear'?'':k==='⌫'?pin.value.slice(0,-1):(pin.value+k).slice(0,4);}},k))),msg,btn];
+  }
+  const out = [h('img',{src:'logo-white.png',alt:'MPHS',class:'big-logo',draggable:'false',onclick:tapLogo}),
+    h('h1',{},'MPHS Scout'),h('p',{class:'sub'},'Sign in to start scouting'),h('div',{class:'login-panel'},controls)];
   if (showSetup) {
     const url = h('input', { placeholder: 'Backend URL', value: settings.url, autocapitalize: 'off' });
     const key = h('input', { placeholder: 'Team key', value: settings.key, autocapitalize: 'off' });
@@ -795,20 +868,20 @@ function loginView() {
 }
 
 /* ================= offline exchange: QR swap with a hub, backup files ================= */
-const XTYPES = ['field', 'pit', 'target', 'user'];
-let hubState = LS.get('scout.hub', { lastAt: 0, log: [] });
-const saveHub = () => LS.set('scout.hub', hubState);
+const XTYPES = ['field', 'pit'];
+let hubState = LS.get('scout.hub.' + activeOrg, { lastAt: 0, log: [] });
+const saveHub = () => LS.set('scout.hub.' + activeOrg, hubState);
 const fnv = s => { let x = 0x811c9dc5; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 0x01000193) >>> 0; } return x >>> 0; };
 const stripRec = r => { const { dirty, ...x } = r; return x; };
 const isScoutRec = r => r.type === 'field' || r.type === 'pit';
-const unsharedCount = () => Object.values(records).filter(r => isScoutRec(r) && !r.deleted && r.updatedAt > hubState.lastAt).length;
+const unsharedCount = () => scopedRecords().filter(r => isScoutRec(r) && !r.deleted && r.updatedAt > hubState.lastAt).length;
 
 function mergeIncoming(list, types = XTYPES) {
   let n = 0;
   for (const r of list || []) {
-    if (!r || typeof r.id !== 'string' || !types.includes(r.type) || !r.data || typeof r.updatedAt !== 'number') continue;
+    if (!r || orgOf(r) !== activeOrg || typeof r.id !== 'string' || !types.includes(r.type) || !r.data || typeof r.updatedAt !== 'number') continue;
     const l = records[r.id];
-    if (!l || r.updatedAt > l.updatedAt) { records[r.id] = { ...stripRec(r), dirty: isScoutRec(r) }; n++; }
+    if ((!l || orgOf(l) === activeOrg) && (!l || r.updatedAt > l.updatedAt)) { records[r.id] = { ...stripRec(r), dirty: isScoutRec(r) || (isAdmin() && ['target','info'].includes(r.type)) }; n++; }
   }
   persist(); return n;
 }
@@ -855,16 +928,17 @@ function makeAssembler() {
 /* --- the swap protocol: phone sends its news + an inventory, hub replies with what the phone is missing --- */
 async function buildRequest() {
   const reqAt = Date.now(), mid = Math.random().toString(36).slice(2, 8);
-  const push = Object.values(records).filter(r => isScoutRec(r) && r.updatedAt > hubState.lastAt).map(stripRec);
-  const inv = []; for (const r of Object.values(records)) if (XTYPES.includes(r.type)) inv.push(fnv(r.id), r.updatedAt);
-  return { reqAt, mid, push, msg: { k: 'X', mid, who: me() ? me().data.name : '?', inv, push } };
+  const push = scopedRecords().filter(r => isScoutRec(r) && r.updatedAt > hubState.lastAt).map(stripRec);
+  const inv = []; for (const r of scopedRecords()) if (XTYPES.includes(r.type)) inv.push(fnv(r.id), r.updatedAt);
+  return { reqAt, mid, push, msg: { k: 'X', org:activeOrg, mid, who: me() ? me().data.name : '?', inv, push } };
 }
 function buildReply(x, hubName) {
+  if (String(x.org || '17190') !== activeOrg) throw new Error('Select the same team on both devices');
   const got = mergeIncoming(x.push);
   const have = new Map(); for (let i = 0; i + 1 < (x.inv || []).length; i += 2) have.set(x.inv[i], x.inv[i + 1]);
   const recs = [];
-  for (const r of Object.values(records)) if (XTYPES.includes(r.type)) { const t = have.get(fnv(r.id)); if (t === undefined || r.updatedAt > t) recs.push(stripRec(r)); }
-  return { got, msg: { k: 'R', re: x.mid, who: hubName, recs } };
+  for (const r of scopedRecords()) if (XTYPES.includes(r.type)) { const t = have.get(fnv(r.id)); if (t === undefined || r.updatedAt > t) recs.push(stripRec(r)); }
+  return { got, msg: { k: 'R', org:activeOrg, re: x.mid, who: hubName, recs } };
 }
 
 /* --- QR tools load on demand (and are kept for offline use by the service worker) --- */
@@ -950,6 +1024,7 @@ function exchangeView() {
     if (!r.msg) { status.textContent = 'Receiving from the hub… ' + r.have + ' of ' + r.total; return; }
     const m = r.msg; if (m.k !== 'R' || m.re !== req.mid) return;
     finished = true;
+    if (String(m.org || '17190') !== activeOrg) {status.textContent='Wrong team in reply';return;}
     const got = mergeIncoming(m.recs); hubState.lastAt = req.reqAt; saveHub();
     if (scanner) scanner.stop();
     cyc.set(await makeFrames({ k: 'A', re: req.mid, got, sent: req.push.length }));
@@ -983,7 +1058,7 @@ function hubView() {
   const cyc = qrCycler(canvas, label, box), asm = makeAssembler(), handled = new Set();
   let scanner = null, facing = LS.get('scout.hubcam', 'user'), stopped = false, current = null, resetTimer;
   const drawStats = () => {
-    const held = Object.values(records).filter(r => isScoutRec(r) && !r.deleted).length;
+    const held = scopedRecords().filter(r => isScoutRec(r) && !r.deleted).length;
     statsEl.replaceChildren(...[[held, 'entries held'], [hubState.log.length, 'swaps'], [pendingCount(), 'waiting to upload']].map(([n, l]) => h('div', { class: 'stat' }, h('b', {}, String(n)), l)));
     logEl.replaceChildren(...hubState.log.slice(0, 6).map(e => h('div', { class: 'card' }, h('div', { class: 'row' }, h('b', {}, e.who), h('span', { class: 'sp' }), h('span', { class: 'meta', style: 'margin:0' }, fmtTime(e.at))), h('div', { class: 'meta' }, 'Received ' + e.got + ' · sent ' + e.out))));
   };
@@ -1002,6 +1077,7 @@ function hubView() {
     }
     if (m.k !== 'X' || handled.has(m.mid)) return;
     handled.add(m.mid);
+    if (String(m.org || '17190') !== activeOrg) {status.textContent='Select the same team on both devices';return;}
     const { got, msg } = buildReply(m, me().data.name);
     current = { mid: m.mid, who: m.who || '?', got, out: msg.recs.length };
     cyc.set(await makeFrames(msg));
@@ -1025,8 +1101,8 @@ function hubView() {
 /* --- backup files (AirDrop / Messages / Files) --- */
 async function exportBackup() {
   const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
-  const data = { app: 'mphs-scout', v: 1, at: Date.now(), by: me().data.name, records: Object.values(records).map(stripRec) };
-  const file = new File([JSON.stringify(data)], 'mphs-backup-' + stamp + '.json', { type: 'application/json' });
+  const data = { app: 'mphs-scout', v: 2, org:activeOrg, at: Date.now(), by: me().data.name, records: scopedRecords().filter(r=>r.type!=='user').map(stripRec) };
+  const file = new File([JSON.stringify(data)], 'mphs-' + activeOrg + '-backup-' + stamp + '.json', { type: 'application/json' });
   try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'MPHS Scout backup' }); return; } }
   catch (e) { if (e && e.name === 'AbortError') return; }
   const a = h('a', { href: URL.createObjectURL(file), download: file.name }); document.body.append(a); a.click(); a.remove();
@@ -1035,7 +1111,8 @@ async function importBackup(file) {
   try {
     const j = JSON.parse(await file.text());
     if (j.app !== 'mphs-scout' || !Array.isArray(j.records)) throw new Error('not an MPHS Scout backup');
-    const n = mergeIncoming(j.records, [...XTYPES, 'info']);
+    if (String(j.org || '17190') !== activeOrg || j.records.some(r=>orgOf(r)!==activeOrg)) throw new Error('Select the backup’s team first');
+    const n = mergeIncoming(j.records, isAdmin() ? [...XTYPES, 'info', 'target'] : XTYPES);
     toast(n ? 'Imported ' + n + ' new or updated entries' : 'Nothing new in that file');
     if (navigator.onLine) sync(); render();
   } catch (e) { toast('Could not read that file: ' + (e.message || e)); }
@@ -1069,11 +1146,13 @@ function go(name, arg) { view = { name, arg: arg ?? null }; render(); scrollTo(0
 let viewCleanup = null;
 function render() {
   const app = $('#app');
+  document.body.classList.toggle('login-mode',!me() || !auth.token);
+  document.body.classList.toggle('hiveminds',activeOrg==='17300');
   if (viewCleanup) { try { viewCleanup(); } catch {} viewCleanup = null; }
   if (!me() || !auth.token) { app.replaceChildren(loginView()); drawSheet(); return; }
   if (me().data.role === 'hub' && view.name !== 'hub') view = { name: 'hub', arg: null };
   const y = scrollY;
-  app.replaceChildren(topbar(), h('main', { class: view.name === 'hub' ? 'wide' : '' }, (views[view.name] || views.board)(view.arg)), view.name === 'hub' ? null : navbar());
+  app.replaceChildren(topbar(), isAdmin() ? teamSwitch() : h('div',{class:'team-label'},'#'+activeOrg+' '+TEAMS[activeOrg].name), h('main', { class: view.name === 'hub' ? 'wide' : '' }, (views[view.name] || views.board)(view.arg)), view.name === 'hub' ? null : navbar());
   scrollTo(0, y); drawSheet();
 }
 function setStatus(text, bad) {
@@ -1118,11 +1197,12 @@ async function sync(manual) {
   if (!session || !auth.token) return false;
   if (syncing) { if (!manual) return false; while (syncing) await new Promise(r => setTimeout(r, 200)); }
   syncing = true; lastError = ''; setStatus('Syncing…');
-  const usersBefore = users().length;
+  const usersBefore = users().length; const version = scopeVersion;
   try {
     const pending = pendingList();
     const snap = Object.fromEntries(pending.map(r => [r.id, r.updatedAt]));
     const j = await api({ userId: session, token: auth.token, since, records: pending.map(({ dirty, ...r }) => r) });
+    if (version !== scopeVersion) return false;
     if (!j.ok) throw new Error(j.error || 'Server error');
     if (j.auth === false) {
       session = null; auth = {}; persist(); syncing = false; setStatus('Signed out', true); render();
@@ -1133,20 +1213,22 @@ async function sync(manual) {
       const cur = records[r.id];
       if (!cur || cur.updatedAt !== snap[r.id]) continue;
       cur.dirty = false;
-      if (rejected.has(r.id)) { cur.updatedAt = 0; cur.deleted = true; }
+      if (rejected.has(r.id)) { cur.dirty=true; cur.rejected=true; }
     }
     if (rejected.size) { since = 0; lastError = 'Not allowed: ' + (j.reason || 'admin only'); toast(lastError); }
     for (const s of j.records || []) {
+      if (orgOf(s) !== activeOrg && s.id !== session) continue;
       const l = records[s.id];
       if (!l || (!l.dirty && s.updatedAt >= l.updatedAt)) records[s.id] = { ...s, dirty: false };
     }
     if (!rejected.size) since = j.now;
     persist();
     syncing = false;
-    setStatus('Synced ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
+    if (rejected.size) setStatus('Changes need attention',true);
+    else setStatus('Synced ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
     afterSync(usersBefore);
     if (!libsWarmed) { libsWarmed = true; setTimeout(() => { loadLib('qr'); loadLib('jsqr'); }, 3000); }
-    if (pendingCount()) setTimeout(() => sync(), 400);   // something was saved while this sync ran
+    if (!rejected.size && pendingCount()) setTimeout(() => sync(), 400);   // something was saved while this sync ran
     return true;
   } catch (e) {
     lastError = String((e && e.message) || e);
@@ -1167,7 +1249,7 @@ async function exportCSV(type) {
   const esc = v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
   const lines = [['scout', 'updated', ...schemaKeys].join(',')];
   for (const r of recs) lines.push([userName(r.data.scoutById, r.data.scout), new Date(r.updatedAt).toISOString(), ...schemaKeys.map(k => r.data[k])].map(esc).join(','));
-  const file = new File([lines.join('\n')], 'mphs-' + type + '.csv', { type: 'text/csv' });
+  const file = new File([lines.join('\n')], 'mphs-' + activeOrg + '-' + type + '.csv', { type: 'text/csv' });
   try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; } } catch { return; }
   const a = h('a', { href: URL.createObjectURL(file), download: file.name }); document.body.append(a); a.click(); a.remove();
 }
