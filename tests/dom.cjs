@@ -20,8 +20,20 @@ const {JSDOM}=require('jsdom');const {makeBackend,seed}=require('./backend.cjs')
  assert.equal(ev("mergeIncoming([{id:session,org:'17190',type:'user',data:{name:'Fake',role:'admin'},updatedAt:Date.now()}])"),0);
  assert(ev("(()=>{try{buildReply({org:'17300',push:[]},'Hub');return false}catch{return true}})()"));
  await click('More');input('Current PIN','1111');input('New PIN (4 digits)','0426');input('Repeat new PIN','0426');await click('Update PIN');assert.equal(ev('auth.isDefault'),false);
- await click('Log out');await click('#17300 Hiveminds');assert(!button('Cohen'));await click('Bee');input('••••','1111');await click('Sign in');assert(!w.document.querySelector('.team-switch'));assert.equal(ev('activeOrg'),'17300');assert.equal(ev("activeOf('field').length"),1);
- ev('logout()');online=false;await click('#17300 Hiveminds');await click('Bee');input('••••','1111');await click('Sign in');assert.equal(ev('session'),'bee');assert(!ev('isAdmin()'));
+ await click('Log out');await click('#17300 Hiveminds');assert(!button('Cohen'));await click('Bee');input('Enter PIN','1111');await click('Sign in');assert(!w.document.querySelector('.team-switch'));assert.equal(ev('activeOrg'),'17300');assert.equal(ev("activeOf('field').length"),1);
+ ev('logout()');online=false;await click('#17300 Hiveminds');await click('Bee');input('Enter PIN','1111');await click('Sign in');assert.equal(ev('session'),'bee');assert(!ev('isAdmin()'));
+ // A delayed user-list refresh must not erase digits already entered on the keypad.
+ ev('logout()');online=true;
+ let releaseDirectory;
+ const immediateFetch=w.fetch;
+ w.fetch=async(url,opt)=>{if(JSON.parse(opt.body).action==='directory')await new Promise(r=>{releaseDirectory=r;});return immediateFetch(url,opt);};
+ await click('#17300 Hiveminds');await click('Bee');await click('0');await click('4');
+ assert.equal(w.document.querySelector('[aria-label="Four-digit PIN"]').value,'04');
+ releaseDirectory();await flush();
+ assert.equal(w.document.querySelector('[aria-label="Four-digit PIN"]').value,'04','Roster refresh erased PIN');
+ await click('2');await click('6');assert.equal(w.document.querySelector('[aria-label="Four-digit PIN"]').value,'0426');
+ await click('⌫');assert.equal(w.document.querySelector('[aria-label="Four-digit PIN"]').value,'042');
+ await click('Clear');assert.equal(w.document.querySelector('[aria-label="Four-digit PIN"]').value,'');
  // Self-service PIN checks include leading zeros, not alphabetic/long input.
  assert.equal(ev("Object.values(records).filter(r=>r.type==='field'&&r.org==='17190').length"),1);
  console.log('DOM checks passed: login/keypad, home-team roster, admin switching, isolated data, PIN change, offline login, QR scope and role rejection.');dom.window.close();
