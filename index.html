@@ -185,7 +185,7 @@ body.hiveminds header .pill{background:#7b356a;color:white}
 <script>
 'use strict';
 /* Backend address and team key. Phones use these automatically. */
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxKDZIyCqEsH91fzAa46_uAhpvZQP4U37LyKahaMYM6TO1h7tNH41YvemA__Z-bHTzO/exec';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxyDmRZTImS1_d2jHs9-ihEndWn6Kyxdn8XUHQu68doycjY1lUHGwKVKguma3DsDA9U/exec';
 const DEFAULT_KEY = ''; // Authentication uses per-user PINs and server-issued sessions.
 
 /* ================= helpers ================= */
@@ -262,6 +262,14 @@ function teamSwitch() {
  return h('div',{class:'team-switch',role:'group','aria-label':'Active team'},Object.entries(TEAMS).map(([id,t]) => h('button',{class:activeOrg === id ? 'selected t'+id : '', 'aria-pressed':activeOrg === id,disabled:syncing,onclick:()=>switchTeam(id)},'#'+id+' '+t.name)));
 }
 const saved = LS.get('scout.settings', {});
+if (LS.get('scout.endpointVersion', '') !== DEFAULT_URL) {
+  saved.url = DEFAULT_URL;
+  saved.key = '';
+  LS.set('scout.settings', saved);
+  LS.set('scout.since.17190', 0);
+  LS.set('scout.since.17300', 0);
+  LS.set('scout.endpointVersion', DEFAULT_URL);
+}
 let settings = { url: saved.url || DEFAULT_URL, key: saved.key || DEFAULT_KEY };
 let since = LS.get('scout.since.' + activeOrg, 0);
 let session = LS.get('scout.session2', null);
