@@ -177,6 +177,7 @@ body.hiveminds{--p:#7b356a;--pl:#ffe0f7}
 body.hiveminds header.top{background:#ffe0f7;color:#55354f;border-bottom:3px solid #fec107}
 body.hiveminds header .logo-s{filter:brightness(0) saturate(100%);opacity:.75}
 body.hiveminds header .pill{background:#7b356a;color:white}
+.event-table{overflow-x:auto}.event-table th{text-align:left;padding:10px}.event-us{outline:2px solid var(--pl);outline-offset:-2px}.event-alliance{padding:10px 0;flex-wrap:wrap}.event-alliance.red>strong{color:#ffaaaa}.event-alliance.blue>strong{color:#a8cfff}
 </style>
 </head>
 <body>
@@ -396,82 +397,6 @@ function pitFormView(rec, pre) {
   return root;
 }
 
-/* ---------- match form (built for use during a live match) ---------- */
-function fieldFormView(rec, pre) {
-  const d = rec ? { ...rec.data } : defaults('field', pre);
-  let tab = 'auton';
-  const root = h('div');
-  const F = SCHEMAS.field;
-
-  const counterTile = f => {
-    const out = h('output', {}, String(d[f.key] || 0));
-    const set = v => { d[f.key] = Math.max(0, v); out.textContent = String(d[f.key]); };
-    const tile = h('div', { class: 'tile', 'data-tone': f.tone || '' },
-      h('button', { type: 'button', class: 'tile-main', onclick: () => {
-        set((Number(d[f.key]) || 0) + 1);
-        tile.classList.remove('pop'); void tile.offsetWidth; tile.classList.add('pop');
-        if (navigator.vibrate) navigator.vibrate(8);
-      } }, h('span', { class: 'tl' }, f.short || f.label), out),
-      h('button', { type: 'button', class: 'tile-minus', 'aria-label': 'Subtract one', onclick: () => set((Number(d[f.key]) || 0) - 1) }, ico('minus', 20)));
-    return tile;
-  };
-  const checkTile = f => h('button', { type: 'button', class: 'chk' + (d[f.key] ? ' on' : ''), onclick: () => { d[f.key] = !d[f.key]; draw(); } },
-    h('i', {}, d[f.key] ? ico('check', 18) : null), f.short || f.label);
-
-  const phase = prefix => {
-    const fs = F.filter(f => f.key.startsWith(prefix));
-    const counters = fs.filter(f => f.type === 'counter'), checks = fs.filter(f => f.type === 'check');
-    const texts = fs.filter(f => f.type === 'text' && (!f.showIf || f.showIf(d)));
-    return [
-      h('div', { class: 'sub-h' }, 'Tap to score'), h('div', { class: 'mgrid' }, counters.map(counterTile)),
-      h('div', { class: 'sub-h' }, 'What happened'), h('div', { class: 'mgrid' }, checks.map(checkTile)),
-      texts.map(f => h('input', { type: 'text', placeholder: f.label, value: d[f.key] || '', style: 'margin-top:4px', oninput: e => { d[f.key] = e.target.value; } }))
-    ];
-  };
-
-  function validate() {
-    if (!/^\d+$/.test(String(d.team).trim())) { toast('Enter the team number'); return false; }
-    if (!/^\d+$/.test(String(d.match).trim())) { toast('Enter the match number'); return false; }
-    return true;
-  }
-  function save() {
-    if (!validate()) return;
-    d.team = String(d.team).trim(); d.match = String(d.match).trim();
-    if (!rec) {
-      const ex = activeOf('field').find(r => String(r.data.team) === d.team && String(r.data.match) === d.match);
-      if (ex && !confirm('Team ' + d.team + ' match ' + d.match + ' was already scouted by ' + userName(ex.data.scoutById, ex.data.scout) + '. Save yours too?')) return;
-    }
-    d.scoutById = me().id; d.scout = me().data.name;
-    upsertRec('field', { ...d }, rec && rec.id);
-    if (rec) { toast('Saved'); go('saved'); return; }
-    const next = String(Number(d.match) + 1);
-    toast('Saved · ready for match ' + next);
-    go('field', { match: next, robot: d.robot });
-  }
-
-  function build() {
-    const out = [
-      h('div', { class: 'card' },
-        h('div', { class: 'info' },
-          h('div', {}, h('label', {}, 'Team'), h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: '0000', value: d.team || '', oninput: e => { d.team = e.target.value; } })),
-          h('div', {}, h('label', {}, 'Match'), h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: '0', value: d.match || '', oninput: e => { d.match = e.target.value; } }))),
-        h('div', { class: 'robots' }, ['Red 1', 'Red 2', 'Blue 1', 'Blue 2'].map(r =>
-          h('button', { type: 'button', class: (r[0] === 'R' ? 'red' : 'blue') + (d.robot === r ? ' on' : ''), onclick: () => { d.robot = d.robot === r ? '' : r; draw(); } }, r)))),
-      h('div', { class: 'tabwrap' }, h('div', { class: 'tabs' }, [['auton', 'Auton'], ['tele', 'Tele-Op'], ['notes', 'Notes']].map(([k, l]) =>
-        h('button', { type: 'button', class: tab === k ? 'on' : '', onclick: () => { tab = k; draw(); scrollTo(0, 0); } }, l))))
-    ];
-    if (tab === 'auton') out.push(...phase('a_'));
-    else if (tab === 'tele') out.push(...phase('t_'));
-    else out.push(h('label', { class: 'l' }, 'Other notes'), h('textarea', { rows: 6, placeholder: 'Anything worth remembering about this robot', oninput: e => { d.notes = e.target.value; } }, d.notes || ''));
-    if (rec) out.push(h('button', { class: 'btn d full', type: 'button', onclick: () => { if (confirm('Delete this entry for everyone?')) { removeRec(rec.id); toast('Deleted'); go('saved'); } } }, ico('trash', 18), 'Delete entry'));
-    out.push(h('div', { class: 'savebar' }, h('button', { class: 'btn', type: 'button', onclick: save }, ico('check', 22), rec ? 'Save changes' : 'Save match')));
-    return out;
-  }
-  function draw() { const y = scrollY; root.replaceChildren(...build().flat(Infinity).filter(Boolean)); scrollTo(0, y); }
-  draw();
-  return root;
-}
-
 /* ================= data helpers ================= */
 function teamIndex() {
   const T = {};
@@ -507,6 +432,73 @@ const scouted = t => t.pit.length > 0 || t.field.length > 0;
 
 /* ================= views ================= */
 const views = {};
+/* ================= official event information ================= */
+const EVENT_DEFAULT = {code:'USCOBRQ',name:'Broomfield Qualifier',dateStart:'2027-01-16',venue:'Prospect Ridge Academy',city:'Broomfield'};
+const EVENT_SEASON = 2026;
+let eventTab='rankings', eventOnlyUs=false;
+const eventBusy=new Set(), eventErrors={};
+const eventChoice = () => LS.get('scout.eventChoice.'+activeOrg, EVENT_DEFAULT.code);
+const eventCacheKey = (org,code) => 'scout.eventData.'+org+'.'+EVENT_SEASON+'.'+code;
+const eventData = () => LS.get(eventCacheKey(activeOrg,eventChoice()),null);
+function eventTeamButton(n,label) { return h('button',{class:'btn o s',onclick:()=>{teamTab='scout';go('team',String(n));}},label||String(n)); }
+async function refreshEvents(listOnly=false) {
+  const org=activeOrg, code=eventChoice(), version=scopeVersion, key=org+':'+code+':'+listOnly;
+  if(eventBusy.has(key)) return;
+  eventBusy.add(key); delete eventErrors[org]; render();
+  try {
+    const j=await api({action:'events',mode:listOnly?'list':'detail',season:EVENT_SEASON,eventCode:code,userId:session,token:auth.token});
+    if(version!==scopeVersion) return;
+    if(!j.ok) throw new Error(j.error||'Event information could not be loaded.');
+    if(j.eventsVersion!==1) throw new Error('The Events backend update needs to be deployed by your admin.');
+    if(listOnly) LS.set('scout.eventList.'+org,j.events);
+    else {
+      const old=LS.get(eventCacheKey(org,code),{sections:{}}), next={...old,event:j.event,sections:{...old.sections}};
+      for(const name of ['rankings','qual','playoff','teams']) {
+        const section=j.sections[name];
+        next.sections[name]=section.ok?section:{...(old.sections[name]||{}),error:section.error};
+      }
+      LS.set(eventCacheKey(org,code),next);
+    }
+  } catch(e) {if(version===scopeVersion) eventErrors[org]=e.name==='AbortError'?'The event request timed out. Try again.':e.message;}
+  finally {eventBusy.delete(key); if(version===scopeVersion && view.name==='events') render();}
+}
+function eventTime(s) {
+  if(!s) return 'Time TBA';
+  // FIRST publishes event-local times without an offset. Preserve those wall-clock times.
+  if(!/(Z|[+-]\d\d:\d\d)$/.test(s)) return s.replace('T',' ').slice(0,16);
+  const d=new Date(s);return isNaN(d)?'Time TBA':d.toLocaleString([], {timeZone:'America/Denver',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' MT';
+}
+views.events=()=>{
+  const code=eventChoice(), data=eventData(), list=LS.get('scout.eventList.'+activeOrg,[EVENT_DEFAULT]);
+  if(!list.some(e=>e.code===code)) list.push(code===EVENT_DEFAULT.code?EVENT_DEFAULT:{code,name:code});
+  const event=data?.event||list.find(e=>e.code===code)||EVENT_DEFAULT;
+  const busy=[...eventBusy].some(k=>k.startsWith(activeOrg+':'));
+  const select=h('select',{'aria-label':'Selected event',onchange:e=>{LS.set('scout.eventChoice.'+activeOrg,e.target.value);render();refreshEvents();}},list.map(e=>h('option',{value:e.code,selected:e.code===code},e.name+' · '+String(e.dateStart||'').slice(0,10))));
+  const out=[h('h1',{},'Events'),h('p',{class:'meta'},'Official FIRST results · '+EVENT_SEASON+'–'+(EVENT_SEASON+1)),select,
+    h('div',{class:'row',style:'margin:12px 0;flex-wrap:wrap'},h('button',{class:'btn s',disabled:busy,onclick:()=>refreshEvents()},ico('refresh',16),busy?'Loading…':'Refresh event'),h('button',{class:'btn o s',disabled:busy,onclick:()=>refreshEvents(true)},'Find team events')),
+    h('div',{class:'card'},h('h2',{},event.name),h('p',{class:'meta'},[String(event.dateStart||'').slice(0,10),event.venue,event.city].filter(Boolean).join(' · ')),h('a',{class:'lnk',href:'https://ftc-events.firstinspires.org/'+EVENT_SEASON+'/'+encodeURIComponent(code),target:'_blank',rel:'noopener'},'View on FIRST')),
+    !navigator.onLine?h('p',{class:'notice'},'Offline — showing previously downloaded information.'):null,
+    eventErrors[activeOrg]?h('p',{class:'notice',role:'status'},eventErrors[activeOrg]):null,
+    h('div',{class:'chips'},[['rankings','Rankings'],['qual','Qualifications'],['playoff','Playoffs'],['teams','Teams']].map(([key,label])=>h('button',{class:eventTab===key?'on':'','aria-pressed':eventTab===key,onclick:()=>{eventTab=key;render();}},label)))];
+  const section=data?.sections?.[eventTab], items=section?.items||[];
+  if(section?.error) out.push(h('p',{class:'notice'},section.error+(section.fetchedAt?' Showing saved data.':'')));
+  if(section?.fetchedAt) out.push(h('p',{class:'meta'},'Downloaded '+fmtTime(section.fetchedAt)+' · Refresh online for updates.'));
+  if(!section?.fetchedAt) out.push(h('p',{class:'meta'},'Tap Refresh event online to download this information.'));
+  else if(!items.length) out.push(h('p',{class:'meta'},eventTab==='teams'?'No attending teams published yet.':eventTab==='rankings'?'Rankings have not been published yet.':'The match schedule has not been published yet.'));
+  if(eventTab==='rankings' && items.length) out.push(h('div',{class:'event-table'},h('table',{},h('thead',{},h('tr',{},['Rank','Team','W–L–T','Played'].map(x=>h('th',{scope:'col'},x)))),h('tbody',{},[...items].sort((a,b)=>a.rank-b.rank).map(r=>h('tr',{class:String(r.teamNumber)===activeOrg?'event-us':''},h('td',{},r.rank),h('td',{},eventTeamButton(r.teamNumber),h('div',{class:'meta'},r.teamName||'')),h('td',{},[r.wins,r.losses,r.ties].map(x=>x??'—').join('–')),h('td',{},r.matchesPlayed??'—')))))));
+  if(eventTab==='teams') out.push(...[...items].sort((a,b)=>a.teamNumber-b.teamNumber).map(t=>h('div',{class:'card'+(String(t.teamNumber)===activeOrg?' event-us':'')},eventTeamButton(t.teamNumber,t.teamNumber+' · '+(t.nameShort||t.nameFull||'')),h('p',{class:'meta'},[t.city,t.stateProv].filter(Boolean).join(', ')))));
+  if(eventTab==='qual'||eventTab==='playoff') {
+    out.push(h('div',{class:'chips'},h('button',{class:eventOnlyUs?'on':'','aria-pressed':eventOnlyUs,onclick:()=>{eventOnlyUs=!eventOnlyUs;render();}},'Only #'+activeOrg)));
+    const matches=items.filter(m=>!eventOnlyUs||(m.teams||[]).some(t=>String(t.teamNumber)===activeOrg));
+    if(items.length&&!matches.length) out.push(h('p',{class:'meta'},'No published matches for #'+activeOrg+'.'));
+    out.push(...matches.map(m=>h('div',{class:'card'},h('b',{},m.description||'Match '+m.matchNumber),h('p',{class:'meta'},eventTime(m.startTime)),['Red','Blue'].map(color=>h('div',{class:'row event-alliance '+color.toLowerCase()},h('strong',{},color),...(m.teams||[]).filter(t=>String(t.station).toLowerCase().startsWith(color.toLowerCase())).map(t=>eventTeamButton(t.teamNumber,String(t.teamNumber)+(String(t.teamNumber)===activeOrg?' ★':''))),h('span',{class:'sp'}),h('b',{},m['score'+color+'Final']??'—'))))));
+  }
+  return h('div',{},out);
+};
+function archivedMatchView(r) {
+  return h('div',{},h('h1',{},'Archived match entry'),h('p',{class:'meta'},'Match scouting has been retired. This saved entry is preserved.'),h('table',{},SCHEMAS.field.filter(f=>r.data[f.key]!=null).map(f=>h('tr',{},h('td',{},f.label),h('td',{},String(r.data[f.key]))))));
+}
+
 let boardF = { f: 'all', q: '' };
 
 views.board = () => {
@@ -578,7 +570,7 @@ function infoPanel(t) {
 }
 
 views.team = n => {
-  const t = teamIndex().find(x => x.team === n);
+  const t = teamIndex().find(x => x.team === n) || {team:n,name:(eventData()?.sections?.teams?.items||[]).find(x=>String(x.teamNumber)===n)?.nameShort||'',pit:[],field:[]};
   if (!t) return views.board();
   const fieldRecs = [...t.field].sort((a, b) => numSort(a.data.match, b.data.match));
   const out = [
@@ -586,7 +578,6 @@ views.team = n => {
     h('h1', {}, 'Team ' + t.team + (t.name ? ' — ' + t.name : '')),
     t.assignedTo ? h('div', { class: 'meta' }, 'Assigned to ' + userName(t.assignedTo, '?')) : null,
     h('div', { class: 'row', style: 'margin-top:8px' },
-      h('button', { class: 'btn', onclick: () => go('field', { team: t.team }) }, ico('plus', 18), 'Match'),
       h('button', { class: 'btn', onclick: () => go('pit', { team: t.team, teamName: t.name }) }, ico('plus', 18), 'Pit')),
     h('div', { class: 'seg2' }, [['scout', 'Our scouting'], ['info', 'FTCScout']].map(([k, l]) => h('button', { class: teamTab === k ? 'on' : '', onclick: () => { teamTab = k; render(); } }, l)))
   ];
@@ -617,11 +608,11 @@ views.team = n => {
   return h('div', {}, out);
 };
 
-views.field = pre => fieldFormView(null, pre);
+views.field = () => views.events();
 views.exchange = () => exchangeView();
 views.hub = () => hubView();
 views.pit = pre => pitFormView(null, pre);
-views.edit = id => { const r = records[id]; if (!r || r.deleted) return views.saved(); return r.type === 'field' ? fieldFormView(r) : r.type === 'pit' ? pitFormView(r) : views.saved(); };
+views.edit = id => { const r = records[id]; if (!r || r.deleted) return views.saved(); return r.type === 'field' ? archivedMatchView(r) : r.type === 'pit' ? pitFormView(r) : views.saved(); };
 
 let savedF = { mine: true, type: 'all' };
 views.saved = () => {
@@ -757,7 +748,9 @@ async function signIn(name, pw, msgEl, btn) {
   try {
     const j = await api({ action: 'login', loginId:loginUser.id, name, password: pw });
     if (version !== scopeVersion) return;
-    if (!j.ok || j.version !== 2) { msgEl.textContent = j.error || 'Could not sign in'; btn.disabled = false; return; }
+    if (!j.ok) { msgEl.textContent = j.error || 'The server rejected sign-in without a reason.'; btn.disabled = false; return; }
+    if (j.version !== 2) { msgEl.textContent = 'Your PIN was accepted, but the backend is an incompatible version. Deploy the latest Code.gs as a New version in Apps Script, then reset this app to its built-in connection settings.'; btn.disabled = false; return; }
+    if (!j.user || j.user.id !== loginUser.id || !j.user.data || typeof j.token !== 'string' || !j.token) { msgEl.textContent = 'The server returned an incomplete login. Ask your admin to redeploy the current backend.'; btn.disabled = false; return; }
     records[j.user.id] = { ...j.user, dirty: false };
     session = j.user.id; auth = { token: j.token, isDefault: !!j.isDefault };
     const hs = await sha('mphs|' + key + '|' + pw);
@@ -1146,8 +1139,8 @@ function topbar() {
     h('button', { class: 'pill' + (lastStatus.bad ? ' bad' : '') + (syncing ? ' spin' : ''), id: 'status', 'aria-label': 'Sync status', onclick: openSheet }, ico('refresh', 14), h('span', { class: 't' }, pillText())));
 }
 function navbar() {
-  const active = { board: 'board', team: 'board', field: 'field', pit: 'pit', saved: 'saved', edit: 'saved', more: 'more', admin: 'more', exchange: 'more' }[view.name];
-  return h('nav', { class: 'bar' }, [['board', 'board', 'Board'], ['field', 'flag', 'Match'], ['pit', 'wrench', 'Pit'], ['saved', 'save', 'Saved'], ['more', 'more', 'More']]
+  const active = { board: 'board', team: 'board', field: 'events', events: 'events', pit: 'pit', saved: 'saved', edit: 'saved', more: 'more', admin: 'more', exchange: 'more' }[view.name];
+  return h('nav', { class: 'bar' }, [['board', 'board', 'Board'], ['events', 'flag', 'Events'], ['pit', 'wrench', 'Pit'], ['saved', 'save', 'Saved'], ['more', 'more', 'More']]
     .map(([k, i, l]) => h('button', { class: active === k ? 'on' : '', onclick: () => go(k) }, ico(i, 24), l)));
 }
 function go(name, arg) { view = { name, arg: arg ?? null }; render(); scrollTo(0, 0); }

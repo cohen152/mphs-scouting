@@ -1,6 +1,12 @@
 {
   "name": "mphs-scout",
   "private": true,
-  "scripts": {"test": "node tests/backend.cjs && node tests/dom.cjs", "test:browser": "node tests/browser.cjs"},
-  "devDependencies": {"jsdom": "31.0.1", "playwright": "1.62.1"}
+  "scripts": {
+    "test": "node tests/backend.cjs && node tests/dom.cjs && node tests/events.cjs",
+    "test:browser": "node tests/browser.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "31.0.1",
+    "playwright": "1.62.1"
+  }
 }

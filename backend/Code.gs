@@ -14,12 +14,13 @@ const SHEETS = { field: 'Field', pit: 'Pit', user: 'Users', target: 'Targets', i
 const ADMIN_ONLY = { user: true, target: true, info: true };
 
 function doGet() {
-  return out_({ ok: true, msg: 'MPHS scouting backend is running' });
+  return out_({ ok: true, version: 2, eventsVersion: 1, msg: 'MPHS scouting backend is running' });
 }
 
 function doPost(e) {
   let body;
   try { body = JSON.parse(e.postData.contents); } catch (err) { return out_({ ok: false, error: String(err) }); }
+  if (body.action === 'events') return firstEvents_(body);
   if (body.action === 'lookup') return lookup_(body);      // slow (calls FTCScout): done without holding the lock
   const lock = LockService.getScriptLock();
   lock.waitLock(25000);
@@ -158,7 +159,7 @@ function setPassword_(body) {
   if (pwHash_(u.id, String(body.oldPw || '')) !== currentHash_(u.id)) return out_({ ok: false, error: 'Current PIN is wrong' });
   const np = String(body.newPw || '');
   if (!/^\d{4}$/.test(np)) return out_({ ok: false, error: 'PIN must contain exactly four digits' });
-  setStoredHash_(u.id, np === '1111' ? '' : pwHash_(u.id, np));
+  setStoredHash_(u.id, np === DEFAULT_PASSWORD ? '' : pwHash_(u.id, np));
   revoke_(u.id);
   return out_({ ok: true, token: tokenFor_(u.id) });
 }
