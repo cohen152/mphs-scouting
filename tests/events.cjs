@@ -1,0 +1,46 @@
+const assert=require('assert'),fs=require('fs');
+const {makeBackend,seed}=require('./backend.cjs');
+const {JSDOM}=require('jsdom');
+(async()=>{
+ const b=makeBackend();seed(b);
+ const login=b.call({action:'login',org:'17190',loginId:'scout',password:'1111'});
+ const request={action:'events',org:'17190',userId:'scout',token:login.token,season:2026,eventCode:'USCOBRQ'};
+ assert(!b.call({...request,token:'bad'}).ok);
+ assert(!b.call({...request,org:'17300'}).ok);
+ assert(b.call(request).error.includes('setup'));
+ const p=b.ctx.PropertiesService.getScriptProperties();p.setProperty('FTC_EVENTS_USERNAME','fixture');p.setProperty('FTC_EVENTS_KEY','fixture-secret');
+ b.ctx.Utilities.base64Encode=s=>Buffer.from(s).toString('base64');
+ let calls=0, failRank=false;
+ b.ctx.UrlFetchApp.fetchAll=rs=>rs.map(r=>{
+  calls++;assert(r.url.startsWith('https://ftc-api.firstinspires.org/v2.0/2026/'));assert(r.headers.Authorization.startsWith('Basic '));
+  let data={};let status=200;
+  if(r.url.includes('/events?')) data={events:[{code:'USCOBRQ',name:'Broomfield Qualifier',dateStart:'2027-01-16'}]};
+  if(r.url.includes('/rankings/')) {data={rankings:[{rank:1,teamNumber:17190,teamName:'PPR',wins:0,losses:0,ties:0,matchesPlayed:0}]};if(failRank)status=503;}
+  if(r.url.includes('/schedule/')) data={schedule:[{matchNumber:1,startTime:'2027-01-16T10:00:00',scoreRedFinal:0,scoreBlueFinal:null,teams:[{station:'Red1',teamNumber:17190}]}]};
+  if(r.url.includes('/teams?')) data={pageTotal:2,teams:[{teamNumber:r.url.endsWith('page=1')?17190:17300,nameShort:'Test'}]};
+  return {getResponseCode:()=>status,getContentText:()=>JSON.stringify(data)};
+ });
+ assert(!b.call({...request,eventCode:'../secrets'}).ok);
+ const result=b.call(request);assert(result.ok);assert.equal(result.sections.teams.items.length,2);
+ assert.equal(result.sections.qual.items[0].scoreRedFinal,0);assert(!JSON.stringify(result).includes('fixture-secret'));
+ const count=calls;assert(b.call(request).ok);assert.equal(count,calls,'cache not reused');
+ assert(b.call({...request,mode:'list'}).events.some(e=>e.code==='USCOBRQ'));
+ b.ctx.CacheService.getScriptCache().remove('firstEvents1:2026/rankings/USCOBRQ');failRank=true;
+ assert(!b.call(request).sections.rankings.ok);
+ const html=fs.readFileSync(__dirname+'/../index.html','utf8');
+ const d=new JSDOM(html,{url:'https://test.local',runScripts:'outside-only'}),w=d.window;
+ w.scrollTo=()=>{};w.setInterval=()=>0;w.setTimeout=()=>0;w.fetch=async()=>{throw new Error('Offline test');};
+ w.eval(html.split('<script>')[1].split('</script>')[0]+'\nwindow.ev=code=>eval(code);');
+ w.ev("records.admin={id:'admin',type:'user',org:'17190',data:{name:'Test',role:'admin'}};session='admin';auth={token:'fixture'};");
+ w.localStorage.setItem('scout.eventData.17190.2026.USCOBRQ',JSON.stringify({event:result.event,sections:result.sections}));
+ w.ev("go('events')");assert(w.document.querySelector('nav').textContent.includes('Events'));assert(!w.document.querySelector('nav').textContent.includes('Match'));
+ assert(w.document.body.textContent.includes('PPR'));
+ w.ev("eventTab='qual';render()");assert(w.document.body.textContent.includes('2027-01-16 10:00'));
+ w.ev("eventTab='rankings';render()");await w.ev('refreshEvents()');assert(w.document.body.textContent.includes('PPR'),'lost offline cache');
+ w.ev("switchTeam('17300');go('events')");assert(!w.document.body.textContent.includes('PPR'),'other team cache leaked');
+ w.ev("go('field')");assert(!w.document.body.textContent.includes('Save match'));
+ w.ev("activeOrg='17190';loginUser={id:'admin'};api=async()=>({ok:true,user:{id:'admin',data:{}},token:'fixture'});");
+ const msg=w.document.createElement('p'),btn=w.document.createElement('button');w.msg=msg;w.btn=btn;
+ await w.ev("signIn('Test','1111',window.msg,window.btn)");assert(msg.textContent.includes('incompatible version'));assert(!btn.disabled);
+ d.window.close();console.log('Events checks passed: authorization, credentials, pagination, cache, partial failure, offline display, team isolation, retired match form, login version diagnostic.');
+})().catch(e=>{console.error(e);process.exit(1)});

@@ -4,6 +4,7 @@ function makeBackend(){
  function sheet(){const rows=[];return {rows,getLastRow:()=>rows.length,getLastColumn:()=>Math.max(1,...rows.map(r=>r.length)),appendRow:r=>rows.push([...r]),setFrozenRows(){},getRange:(r,c,nr=1,nc=1)=>({getValues:()=>Array.from({length:nr},(_,i)=>Array.from({length:nc},(_,j)=>rows[r+i-1]?.[c+j-1]??'')),setValues:vs=>vs.forEach((row,i)=>row.forEach((v,j)=>{(rows[r+i-1] ||= [])[c+j-1]=v;}))})};}
  const ctx=vm.createContext({console,Date,SpreadsheetApp:{getActiveSpreadsheet:()=>({getSheetByName:n=>sheets.get(n),insertSheet:n=>{let sh=sheet();sheets.set(n,sh);return sh;}})},LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},Utilities:{DigestAlgorithm:{SHA_256:'sha256'},computeDigest:(_,s)=>[...crypto.createHash('sha256').update(s).digest()],getUuid:()=>crypto.randomUUID()},PropertiesService:{getScriptProperties:()=>({getProperty:k=>props.get(k),setProperty:(k,v)=>props.set(k,v),deleteProperty:k=>props.delete(k)})},CacheService:{getScriptCache:()=>({get:k=>cache.get(k),put:(k,v)=>cache.set(k,v),remove:k=>cache.delete(k)})},ContentService:{MimeType:{JSON:'json'},createTextOutput:s=>({setMimeType:()=>JSON.parse(s)})},UrlFetchApp:{fetchAll:rs=>rs.map(()=>({getResponseCode:()=>404,getContentText:()=>''}))}});
  vm.runInContext(fs.readFileSync(__dirname+'/../backend/Code.gs','utf8'),ctx);
+ vm.runInContext(fs.readFileSync(__dirname+'/../backend/Events.gs','utf8'),ctx);
  return {ctx,sheets,call:b=>ctx.doPost({postData:{contents:JSON.stringify(b)}})};
 }
 function seed(b){b.ctx.upsertMany_('user',[

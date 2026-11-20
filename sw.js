@@ -1,4 +1,4 @@
-const CACHE = 'scout-v4';
+const CACHE = 'scout-v5-events';
 const ASSETS = ['./', 'index.html', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'logo-white.png', 'login-background.jpeg'];
 
 self.addEventListener('install', e => {
