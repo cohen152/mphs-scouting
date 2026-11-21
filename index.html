@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MPHS Scout">
 <meta name="theme-color" content="#6b2ba8">
 <link rel="manifest" href="manifest.json">
@@ -22,20 +22,14 @@
   --p:#6b2ba8;--pl:#b58be3;--s:#2e333f;--bg:#22262f;--card:#2e333f;--card2:#394050;
   --line:rgba(255,255,255,.14);--mute:rgba(255,255,255,.66);--ok:#58d68d;--bad:#ff6b6b;--warn:#ffd166;
   --body:'Lexend Deca',system-ui,-apple-system,sans-serif;--disp:'Norwester','Oswald','Arial Narrow',sans-serif;
-  --nav:64px;--hdr:calc(env(safe-area-inset-top, 0px) + 62px)
+  --nav:64px;--hdr:calc(env(safe-area-inset-top) + 54px)
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html{height:100%;overflow:hidden;background:var(--bg)}
-body{margin:0;height:100%;overflow:hidden;font:16px/1.4 var(--body);background:var(--bg);color:#fff}
-/* Keep the shell independent of page length. Only the main panel scrolls. */
-#app{height:100%;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
-#app>header,#app>.team-switch,#app>.team-label,#app>nav{flex-shrink:0}
-#app>.team-switch{width:calc(100% - 16px)}
-#app>main{flex:1 1 0;min-height:0;width:100%;overflow-y:auto;overscroll-behavior-y:contain;padding-bottom:24px;scroll-padding-bottom:24px}
-body.login-mode #app{display:block;overflow-y:auto;padding-bottom:calc(24px + env(safe-area-inset-bottom, 0px))}
+html{background:var(--bg)}
+body{margin:0;font:16px/1.4 var(--body);background:var(--bg);color:#fff;padding-bottom:calc(var(--nav) + 24px + env(safe-area-inset-bottom))}
 button{font-family:inherit}
 .ico{display:inline-grid;place-items:center;line-height:0}
-header.top{position:relative;z-index:5;background:var(--p);height:var(--hdr);padding:calc(env(safe-area-inset-top, 0px) + 4px) max(14px, env(safe-area-inset-right, 0px)) 4px max(14px, env(safe-area-inset-left, 0px));display:flex;align-items:center;gap:10px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+header.top{position:sticky;top:0;z-index:5;background:var(--p);height:var(--hdr);padding:env(safe-area-inset-top) 14px 0;display:flex;align-items:center;gap:10px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
 .logo-s{height:34px;width:auto;flex:none}
 .brand{font-family:var(--disp);font-weight:400;font-size:20px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;flex:none}
 .sp{flex:1;min-width:0}
@@ -75,7 +69,7 @@ textarea{resize:vertical}
 .toggle i{width:26px;height:26px;border:2px solid var(--mute);border-radius:7px;display:grid;place-items:center;flex:none}
 .toggle.on{background:var(--p);border-color:var(--pl)}
 .toggle.on i{background:#fff;color:var(--p);border-color:#fff}
-nav.bar{position:relative;background:var(--s);border-top:1px solid var(--line);display:flex;padding:0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);z-index:6}
+nav.bar{position:fixed;left:0;right:0;bottom:0;background:var(--s);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:6}
 nav.bar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:none;font:500 11px var(--body);height:var(--nav);justify-content:center;color:var(--mute);position:relative}
 nav.bar button.on{color:#fff;font-weight:700}
 nav.bar button.on::before{content:'';position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 3px 3px;background:var(--pl)}
@@ -107,7 +101,7 @@ small.h{color:var(--mute)}
 .robots button{font:600 13px var(--body);color:#fff;padding:12px 2px;border-radius:12px;background:var(--bg);border:1px solid var(--line);border-top:4px solid var(--c)}
 .robots button.red{--c:#ff6b6b}.robots button.blue{--c:#5aa9ff}
 .robots button.on{background:var(--c);color:#16181d;border-color:var(--c)}
-.tabwrap{position:sticky;top:0;z-index:4;background:var(--bg);padding:10px 0 8px}
+.tabwrap{position:sticky;top:var(--hdr);z-index:4;background:var(--bg);padding:10px 0 8px}
 .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--card);padding:5px;border-radius:14px}
 .tabs button{border:0;background:transparent;color:var(--mute);font-family:var(--disp);font-size:20px;letter-spacing:.06em;text-transform:uppercase;padding:10px 0;border-radius:10px}
 .tabs button.on{background:var(--p);color:#fff}
@@ -127,7 +121,7 @@ small.h{color:var(--mute)}
 .chk.on{background:var(--p);border-color:var(--pl)}
 .chk.on i{background:#fff;color:var(--p);border-color:#fff}
 .sub-h{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:16px 2px 0;font-weight:600}
-.savebar{position:sticky;bottom:8px;padding-top:14px;background:linear-gradient(to bottom,transparent,var(--bg) 40%);z-index:4}
+.savebar{position:sticky;bottom:calc(var(--nav) + 8px + env(safe-area-inset-bottom));padding-top:14px;background:linear-gradient(to bottom,transparent,var(--bg) 40%);z-index:4}
 .savebar .btn{width:100%;font-size:18px;padding:16px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
 /* sync sheet */
 .sheet-wrap{position:fixed;inset:0;z-index:40}
@@ -163,7 +157,7 @@ main.wide{max-width:1100px}
 @media (orientation:landscape) and (min-width:760px){.hubgrid{grid-template-columns:1fr 1fr;align-items:start}.hubgrid .qrbox{width:min(100%,520px)}.hubgrid .cam{height:min(60vh,420px)}}
 details summary{cursor:pointer;color:var(--pl);padding:8px 0}
 
-body.login-mode{background:linear-gradient(#0002,#0007),url('login-background.jpeg') center/cover fixed;min-height:0;padding-bottom:0}
+body.login-mode{background:linear-gradient(#0002,#0007),url('login-background.jpeg') center/cover fixed;min-height:100dvh;padding-bottom:24px}
 .login h1,.login .sub{text-shadow:0 2px 8px #0009;color:white}
 .login-panel{background:#fffffff2;color:#29212d;padding:18px;border-radius:16px;text-align:center;box-shadow:0 8px 30px #0003}
 .login-panel p{color:#44384b}.login-panel .err{color:#a71934}.login-panel .btn{background:#6b2ba8;color:white}
@@ -398,7 +392,7 @@ function pitFormView(rec, pre) {
     if (rec) out.push(h('button', { class: 'btn d full', type: 'button', onclick: () => { if (confirm('Delete this entry for everyone?')) { removeRec(rec.id); toast('Deleted'); go('saved'); } } }, ico('trash', 18), 'Delete entry'));
     return out;
   }
-  function draw() { const y = appScrollY(); root.replaceChildren(...build().flat(Infinity).filter(Boolean)); scrollApp(y); }
+  function draw() { const y = scrollY; root.replaceChildren(...build().flat(Infinity).filter(Boolean)); scrollTo(0, y); }
   draw();
   return root;
 }
@@ -674,7 +668,7 @@ views.more = () => {
 
 views.admin = () => {
   if (!isAdmin()) return views.board();
-  const keep = f => () => { const y = appScrollY(); f(); render(); scrollApp(y); };
+  const keep = f => () => { const y = scrollY; f(); render(); scrollTo(0, y); };
   const us = users().sort((a, b) => a.data.name.localeCompare(b.data.name));
   const admins = us.filter(u => u.data.role === 'admin').length;
   const nameTaken = (name, exceptId) => users().some(u => u.id !== exceptId && u.data.name.trim().toLowerCase() === name.trim().toLowerCase());
@@ -1149,9 +1143,7 @@ function navbar() {
   return h('nav', { class: 'bar' }, [['board', 'board', 'Board'], ['events', 'flag', 'Events'], ['pit', 'wrench', 'Pit'], ['saved', 'save', 'Saved'], ['more', 'more', 'More']]
     .map(([k, i, l]) => h('button', { class: active === k ? 'on' : '', onclick: () => go(k) }, ico(i, 24), l)));
 }
-function appScrollY() { return ($('#app>main') || $('#app')).scrollTop; }
-function scrollApp(y) { const panel = $('#app>main') || $('#app'); if (panel) panel.scrollTop = y; }
-function go(name, arg) { view = { name, arg: arg ?? null }; render(); scrollApp(0); }
+function go(name, arg) { view = { name, arg: arg ?? null }; render(); scrollTo(0, 0); }
 let viewCleanup = null;
 function render() {
   const app = $('#app');
@@ -1160,9 +1152,9 @@ function render() {
   if (viewCleanup) { try { viewCleanup(); } catch {} viewCleanup = null; }
   if (!me() || !auth.token) { app.replaceChildren(loginView()); drawSheet(); return; }
   if (me().data.role === 'hub' && view.name !== 'hub') view = { name: 'hub', arg: null };
-  const y = appScrollY();
+  const y = scrollY;
   app.replaceChildren(topbar(), isAdmin() ? teamSwitch() : h('div',{class:'team-label'},'#'+activeOrg+' '+TEAMS[activeOrg].name), h('main', { class: view.name === 'hub' ? 'wide' : '' }, (views[view.name] || views.board)(view.arg)), view.name === 'hub' ? null : navbar());
-  scrollApp(y); drawSheet();
+  scrollTo(0, y); drawSheet();
 }
 function setStatus(text, bad) {
   lastStatus = { text, bad: !!bad };
