@@ -19,7 +19,14 @@ const {JSDOM}=require('jsdom');const {makeBackend,seed}=require('./backend.cjs')
  assert.equal(ev("mergeIncoming([{id:'foreign',org:'17300',type:'field',data:{},updatedAt:Date.now()}])"),0);
  assert.equal(ev("mergeIncoming([{id:session,org:'17190',type:'user',data:{name:'Fake',role:'admin'},updatedAt:Date.now()}])"),0);
  assert(ev("(()=>{try{buildReply({org:'17300',push:[]},'Hub');return false}catch{return true}})()"));
- await click('More');input('Current PIN','1111');input('New PIN (4 digits)','0426');input('Repeat new PIN','0426');await click('Update PIN');assert.equal(ev('auth.isDefault'),false);
+ await click('More');
+ await click('Show layout report');
+ const layout=JSON.parse(w.document.querySelector('[aria-label="Layout report"]').value);
+ assert.equal(layout.build,'2026-11-21.8');
+ assert(layout.samples['17190/board'],'Layout report should retain the prior tab');
+ assert(layout.samples['17190/more'],'Layout report should include the current tab');
+ assert(!JSON.stringify(layout).includes(ev('auth.token')),'Layout report must not include the session token');
+ input('Current PIN','1111');input('New PIN (4 digits)','0426');input('Repeat new PIN','0426');await click('Update PIN');assert.equal(ev('auth.isDefault'),false);
  await click('Log out');await click('#17300 Hiveminds');assert(!button('Cohen'));await click('Bee');input('Enter PIN','1111');await click('Sign in');assert(!w.document.querySelector('.team-switch'));assert.equal(ev('activeOrg'),'17300');assert.equal(ev("activeOf('field').length"),1);
  ev('logout()');online=false;await click('#17300 Hiveminds');await click('Bee');input('Enter PIN','1111');await click('Sign in');assert.equal(ev('session'),'bee');assert(!ev('isAdmin()'));
  // A delayed user-list refresh must not erase digits already entered on the keypad.

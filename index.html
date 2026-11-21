@@ -632,6 +632,45 @@ views.saved = () => {
   return h('div', {}, h('h1', {}, 'Saved entries'), chips, listEl);
 };
 
+// Local-only measurements for diagnosing installed iPhone viewport issues.
+const APP_BUILD = '2026-11-21.8';
+const layoutSamples = {};
+function captureLayout() {
+  if (!isAdmin()) return;
+  const nav = document.querySelector('nav.bar');
+  if (!nav) return;
+  const rect = nav.getBoundingClientRect();
+  const header = document.querySelector('header.top');
+  const vv = window.visualViewport;
+  layoutSamples[activeOrg + '/' + view.name] = {
+    screen: [screen.width, screen.height], window: [innerWidth, innerHeight],
+    viewport: vv ? [vv.width, vv.height, vv.offsetTop, vv.scale] : null,
+    scrollY, documentHeight: document.documentElement.scrollHeight,
+    nav: {top: rect.top, bottom: rect.bottom, height: rect.height,
+      position: getComputedStyle(nav).position, bottomPadding: getComputedStyle(nav).paddingBottom},
+    header: header ? {height: header.getBoundingClientRect().height,
+      topPadding: getComputedStyle(header).paddingTop} : null
+  };
+}
+function layoutTools() {
+  const report = h('textarea', {readonly: true, rows: 12, 'aria-label': 'Layout report', style:'font:12px monospace;display:none'});
+  return h('details', {style:'margin:12px 0'}, h('summary', {}, 'App version & layout check'),
+    h('p', {class:'meta'}, 'Build ' + APP_BUILD + ' · original layout restored'),
+    h('button', {class:'btn o full', onclick: () => {
+      persist();
+      const url = new URL(location.href); url.searchParams.set('appBuild', APP_BUILD);
+      location.replace(url.href);
+    }}, 'Reload app'),
+    h('p', {class:'meta'}, 'Visit the affected tabs, then return here. This report contains screen measurements only.'),
+    h('button', {class:'btn o full', onclick: () => {
+      captureLayout();
+      report.value = JSON.stringify({build: APP_BUILD, standalone: navigator.standalone === true,
+        samples: layoutSamples}, null, 2);
+      report.style.display = 'block';
+      report.focus(); report.select();
+    }}, 'Show layout report'), report);
+}
+
 views.more = () => {
   const oldPw = h('input', { type: 'password', inputmode:'numeric', maxlength:4, pattern:'[0-9]{4}', placeholder: 'Current PIN', autocomplete: 'current-password' });
   const newPw = h('input', { type: 'password', inputmode:'numeric', maxlength:4, pattern:'[0-9]{4}', placeholder: 'New PIN (4 digits)', autocomplete: 'new-password' });
@@ -642,6 +681,7 @@ views.more = () => {
     h('div', { class: 'card' }, h('div', { class: 'row' }, h('b', {}, me().data.name), h('span', { class: 'badge' }, me().data.role))),
     auth.isDefault ? h('div', { class: 'notice' }, 'You are still using the default PIN (1111). Please change it below.') : null,
     isAdmin() ? h('button', { class: 'btn full', onclick: () => go('admin') }, ico('shield', 18), 'Admin: users & teams') : null,
+    isAdmin() ? layoutTools() : null,
     h('h2', {}, 'Change PIN'), oldPw, newPw, conf, pwBtn,
     h('h2', {}, 'Sync'),
     h('div', { class: 'meta' }, pendingCount() + ' change(s) waiting to upload'),
@@ -1143,7 +1183,7 @@ function navbar() {
   return h('nav', { class: 'bar' }, [['board', 'board', 'Board'], ['events', 'flag', 'Events'], ['pit', 'wrench', 'Pit'], ['saved', 'save', 'Saved'], ['more', 'more', 'More']]
     .map(([k, i, l]) => h('button', { class: active === k ? 'on' : '', onclick: () => go(k) }, ico(i, 24), l)));
 }
-function go(name, arg) { view = { name, arg: arg ?? null }; render(); scrollTo(0, 0); }
+function go(name, arg) { captureLayout(); view = { name, arg: arg ?? null }; render(); scrollTo(0, 0); }
 let viewCleanup = null;
 function render() {
   const app = $('#app');
