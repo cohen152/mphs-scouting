@@ -12,6 +12,31 @@ const {JSDOM}=require('jsdom');const {makeBackend,seed}=require('./backend.cjs')
  const ev=code=>w.inspectApp(code);const button=name=>[...w.document.querySelectorAll('button')].find(x=>x.textContent===name);
  async function click(name){assert(button(name),'Missing button '+name);button(name).click();await flush();}
  const input=(placeholder,value)=>{let el=w.document.querySelector('input[placeholder="'+placeholder+'"]');assert(el,placeholder);el.value=value;};
+ // An installed iPhone uses stable screen height, even when the viewport shrinks.
+ const originalUA=w.navigator.userAgent;
+ Object.defineProperty(w.navigator,'userAgent',{value:'Mozilla/5.0 (iPhone)',configurable:true});
+ Object.defineProperty(w.navigator,'standalone',{value:true,configurable:true});
+ Object.defineProperty(w.screen,'width',{value:402,configurable:true});
+ Object.defineProperty(w.screen,'height',{value:874,configurable:true});
+ Object.defineProperty(w,'innerHeight',{value:812,configurable:true});
+ ev('updateStandalonePageHeight()');
+ assert(w.document.documentElement.classList.contains('iphone-standalone'));
+ assert.equal(w.document.documentElement.style.getPropertyValue('--iphone-screen-height'),'874px');
+ Object.defineProperty(w,'innerHeight',{value:840,configurable:true});
+ ev('updateStandalonePageHeight()');
+ assert.equal(w.document.documentElement.style.getPropertyValue('--iphone-screen-height'),'874px');
+ w.orientation=90;ev('updateStandalonePageHeight()');
+ assert.equal(w.document.documentElement.style.getPropertyValue('--iphone-screen-height'),'402px');
+ w.orientation=0;
+ Object.defineProperty(w.navigator,'standalone',{value:false,configurable:true});
+ ev('updateStandalonePageHeight()');
+ assert(!w.document.documentElement.classList.contains('iphone-standalone'));
+ assert.equal(w.document.documentElement.style.getPropertyValue('--iphone-screen-height'),'');
+ Object.defineProperty(w.navigator,'standalone',{value:true,configurable:true});
+ Object.defineProperty(w.navigator,'userAgent',{value:originalUA,configurable:true});
+ ev('updateStandalonePageHeight()');
+ assert(!w.document.documentElement.classList.contains('iphone-standalone'));
+ Object.defineProperty(w.navigator,'standalone',{value:false,configurable:true});
  await click('#17190 P.P.R.');assert(button('Cohen'));assert(!button('Bee'));await click('Cohen');for(let i=0;i<4;i++)await click('1');assert.equal(w.document.querySelector('[aria-label="Four-digit PIN"]').value,'1111');await click('Sign in');
  assert(ev('isAdmin()'));assert(ev("activeOf('field').some(r=>r.id==='legacy')"));
  await click('#17300 Hiveminds');assert.equal(ev("activeOf('field').length"),0);ev("upsertRec('field',{team:'456',match:'2'})");await flush();assert.equal(ev("activeOf('field').length"),1);
@@ -22,7 +47,7 @@ const {JSDOM}=require('jsdom');const {makeBackend,seed}=require('./backend.cjs')
  await click('More');
  await click('Show layout report');
  const layout=JSON.parse(w.document.querySelector('[aria-label="Layout report"]').value);
- assert.equal(layout.build,'2026-11-21.8');
+ assert.equal(layout.build,'2026-11-21.9');
  assert(layout.samples['17190/board'],'Layout report should retain the prior tab');
  assert(layout.samples['17190/more'],'Layout report should include the current tab');
  assert(!JSON.stringify(layout).includes(ev('auth.token')),'Layout report must not include the session token');

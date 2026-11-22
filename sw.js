@@ -1,4 +1,4 @@
-const CACHE = 'scout-v8-layout-check';
+const CACHE = 'scout-v9-iphone-short-pages';
 const ASSETS = ['./', 'index.html', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'logo-white.png', 'login-background.jpeg'];
 
 self.addEventListener('install', e => {

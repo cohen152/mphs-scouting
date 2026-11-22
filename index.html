@@ -27,6 +27,9 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{background:var(--bg)}
 body{margin:0;font:16px/1.4 var(--body);background:var(--bg);color:#fff;padding-bottom:calc(var(--nav) + 24px + env(safe-area-inset-bottom))}
+/* Installed iPhones can shrink the viewport on non-scrollable pages.
+   Keep the document just taller than the screen; retain native page scrolling. */
+html.iphone-standalone body:not(.login-mode){min-height:calc(var(--iphone-screen-height) + 1px)}
 button{font-family:inherit}
 .ico{display:inline-grid;place-items:center;line-height:0}
 header.top{position:sticky;top:0;z-index:5;background:var(--p);height:var(--hdr);padding:env(safe-area-inset-top) 14px 0;display:flex;align-items:center;gap:10px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
@@ -633,7 +636,7 @@ views.saved = () => {
 };
 
 // Local-only measurements for diagnosing installed iPhone viewport issues.
-const APP_BUILD = '2026-11-21.8';
+const APP_BUILD = '2026-11-21.9';
 const layoutSamples = {};
 function captureLayout() {
   if (!isAdmin()) return;
@@ -646,6 +649,7 @@ function captureLayout() {
     screen: [screen.width, screen.height], window: [innerWidth, innerHeight],
     viewport: vv ? [vv.width, vv.height, vv.offsetTop, vv.scale] : null,
     scrollY, documentHeight: document.documentElement.scrollHeight,
+    minimumPageHeight: getComputedStyle(document.body).minHeight,
     nav: {top: rect.top, bottom: rect.bottom, height: rect.height,
       position: getComputedStyle(nav).position, bottomPadding: getComputedStyle(nav).paddingBottom},
     header: header ? {height: header.getBoundingClientRect().height,
@@ -655,7 +659,7 @@ function captureLayout() {
 function layoutTools() {
   const report = h('textarea', {readonly: true, rows: 12, 'aria-label': 'Layout report', style:'font:12px monospace;display:none'});
   return h('details', {style:'margin:12px 0'}, h('summary', {}, 'App version & layout check'),
-    h('p', {class:'meta'}, 'Build ' + APP_BUILD + ' · original layout restored'),
+    h('p', {class:'meta'}, 'Build ' + APP_BUILD + ' · iPhone short-page fix'),
     h('button', {class:'btn o full', onclick: () => {
       persist();
       const url = new URL(location.href); url.searchParams.set('appBuild', APP_BUILD);
@@ -1295,7 +1299,28 @@ async function exportCSV(type) {
   const a = h('a', { href: URL.createObjectURL(file), download: file.name }); document.body.append(a); a.click(); a.remove();
 }
 
+// Screen dimensions stay stable when iOS shrinks a short page's viewport.
+// Apply only to installed iPhones; browser tabs and tablets keep their own sizing.
+function updateStandalonePageHeight() {
+  const root = document.documentElement;
+  const installed = navigator.standalone === true;
+  const phone = /iPhone|iPod/.test(navigator.userAgent);
+  const width = Number(screen.width), height = Number(screen.height);
+  const enabled = installed && phone && width > 0 && height > 0;
+  root.classList.toggle('iphone-standalone', enabled);
+  if (!enabled) { root.style.removeProperty('--iphone-screen-height'); return; }
+  const angle = screen.orientation?.angle ?? window.orientation ?? 0;
+  const landscape = Math.abs(angle % 180) === 90;
+  const value = (landscape ? Math.min(width, height) : Math.max(width, height)) + 'px';
+  if (root.style.getPropertyValue('--iphone-screen-height') !== value)
+    root.style.setProperty('--iphone-screen-height', value);
+}
+
 /* ================= start ================= */
+updateStandalonePageHeight();
+window.addEventListener('resize', updateStandalonePageHeight);
+window.addEventListener('orientationchange', updateStandalonePageHeight);
+window.addEventListener('pageshow', updateStandalonePageHeight);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.addEventListener('online', () => sync());
 document.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
