@@ -47,7 +47,7 @@ const {JSDOM}=require('jsdom');const {makeBackend,seed}=require('./backend.cjs')
  await click('More');
  await click('Show layout report');
  const layout=JSON.parse(w.document.querySelector('[aria-label="Layout report"]').value);
- assert.equal(layout.build,'2026-11-21.9');
+ assert.equal(layout.build,'2026-11-21.10');
  assert(layout.samples['17190/board'],'Layout report should retain the prior tab');
  assert(layout.samples['17190/more'],'Layout report should include the current tab');
  assert(!JSON.stringify(layout).includes(ev('auth.token')),'Layout report must not include the session token');
